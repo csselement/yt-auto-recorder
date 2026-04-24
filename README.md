@@ -51,7 +51,20 @@ volumes:
 The Ugreen Docker app works best when the Compose project uses a prebuilt image. Build and publish your image from a computer with Docker, then use `docker-compose.ugreen.yml` in the NAS Docker app.
 
 1. Create a Docker Hub account.
-2. Replace `USERNAME` in `docker-compose.ugreen.yml` with your Docker Hub username.
+2. Replace every `USERNAME` placeholder with your Docker Hub login name.
+
+For example, if your Docker Hub login is `janedoe`, then:
+
+```text
+USERNAME/yt-auto-recorder:latest
+```
+
+becomes:
+
+```text
+janedoe/yt-auto-recorder:latest
+```
+
 3. Build and push a multi-architecture image:
 
 ```bash
