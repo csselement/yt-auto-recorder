@@ -252,6 +252,12 @@
             return node;
         }
 
+        function autoRecordLabel(channel) {
+            if (channel.active) return "Auto-record: on";
+            if (channel.status === "recording") return "Auto-record: off after current recording";
+            return "Auto-record: off";
+        }
+
         async function refresh() {
             const response = await fetch("/status");
             const data = await response.json();
@@ -277,7 +283,7 @@
                 info.className = "info";
                 info.appendChild(document.createTextNode(`Status: ${ch.status}`));
                 info.appendChild(document.createElement("br"));
-                info.appendChild(document.createTextNode(`Recording: ${ch.active ? "active" : "inactive"}`));
+                info.appendChild(document.createTextNode(autoRecordLabel(ch)));
                 info.appendChild(document.createElement("br"));
                 info.appendChild(document.createTextNode(`Last seen: ${ch.last_seen || "Never seen"}`));
                 info.appendChild(document.createElement("br"));
@@ -301,8 +307,8 @@
 
                 const toggleLabel = document.createElement("label");
                 toggleLabel.className = "channel-toggle";
-                toggleLabel.title = "Enable or pause automatic recording for this channel";
-                toggleLabel.appendChild(document.createTextNode(ch.active ? "Active" : "Inactive"));
+                toggleLabel.title = "Enable or pause automatic starts for this channel";
+                toggleLabel.appendChild(document.createTextNode(ch.active ? "Auto on" : "Auto off"));
 
                 const switchLabel = document.createElement("span");
                 switchLabel.className = "switch";
@@ -344,7 +350,7 @@
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Unable to update channel setting.");
 
-            setMessage(active ? "Channel recording is active." : "Channel recording is inactive.");
+            setMessage(active ? "Automatic starts are on for this channel." : "Automatic starts are off for this channel.");
             await refresh();
         }
 

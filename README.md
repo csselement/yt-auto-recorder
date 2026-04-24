@@ -73,7 +73,7 @@ http://localhost:8090
 
 The dashboard lets you add and remove YouTube channels from the watch list. Removing a channel only stops future watching; existing recordings stay on disk.
 
-The dashboard also includes an active/inactive Recording switch for each watched channel. Turn a channel off to keep it in the list while preventing new automatic recordings for that channel. Turn it back on when you want that channel recorded again.
+The dashboard also includes an Auto-record switch for each watched channel. Turn a channel off to keep it in the list while preventing new automatic recordings for that channel. If the channel is already recording, the current recording is left running and the switch applies to future automatic starts.
 
 ## Folders Created
 
@@ -187,6 +187,6 @@ These environment variables are available in `docker-compose.yml`:
 
 - The dashboard listens on port `8090`.
 - The recorder keeps one folder per watched channel under the recordings directory, with that channel's recordings saved inside it.
-- Each channel's Recording switch pauses new recordings for that channel without deleting it from the watched channel list.
+- Each channel's Auto-record switch pauses new recording starts for that channel without deleting it from the watched channel list.
 - If one channel is recording, other channels continue being checked.
 - Active recordings are first written as `.mkv` files. When a stream ends, the archive is transcoded to H.264 `.mp4` with 192 kbps MP3 audio.
