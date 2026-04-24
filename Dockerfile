@@ -3,6 +3,7 @@ FROM python:3.12-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     CHANNEL_LIST=/config/recording-channels.txt \
+    SETTINGS_FILE=/config/settings.json \
     BASE_DIR=/recordings \
     CHECK_INTERVAL=30 \
     VIDEO_CRF=23 \

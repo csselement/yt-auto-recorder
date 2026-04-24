@@ -9,6 +9,7 @@ This Docker image and Compose setup are written specifically for Ugreen NAS syst
 Docker packages the recorder, dashboard, `yt-dlp`, `ffmpeg`, and their dependencies into one container. On your Ugreen NAS, you only need to run the container and mount two folders:
 
 - `/config`: stores the watch list file.
+- `/config/settings.json`: stores whether automatic recording is active.
 - `/recordings`: stores downloaded livestream archives.
 
 ## Easy Ugreen Docker App Install
@@ -71,6 +72,8 @@ http://localhost:8090
 ```
 
 The dashboard lets you add and remove YouTube channels from the watch list. Removing a channel only stops future watching; existing recordings stay on disk.
+
+The dashboard also includes a Recording switch. Turn it off to keep the watched channel list while preventing new automatic recordings from starting. Turn it back on when you want monitored livestreams recorded again.
 
 ## Folders Created
 
@@ -174,6 +177,7 @@ These environment variables are available in `docker-compose.yml`:
 
 - `CHECK_INTERVAL`: seconds between channel checks. Default is `30`.
 - `CHANNEL_LIST`: path inside the container for the watch list.
+- `SETTINGS_FILE`: path inside the container for the dashboard/recorder settings file.
 - `BASE_DIR`: path inside the container for recordings.
 - `VIDEO_CRF`: H.264 quality for finished MP4 files. Lower is higher quality/larger files. Default is `23`.
 - `VIDEO_PRESET`: H.264 encoding speed. Default is `veryfast`.
@@ -183,5 +187,6 @@ These environment variables are available in `docker-compose.yml`:
 
 - The dashboard listens on port `8090`.
 - The recorder keeps one folder per watched channel under the recordings directory, with that channel's recordings saved inside it.
+- The Recording switch pauses new recordings without deleting the watched channel list.
 - If one channel is recording, other channels continue being checked.
 - Active recordings are first written as `.mkv` files. When a stream ends, the archive is transcoded to H.264 `.mp4` with 192 kbps MP3 audio.

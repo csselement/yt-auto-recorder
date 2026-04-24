@@ -3,6 +3,7 @@ set -u
 
 CHANNELS_FILE="${CHANNEL_LIST:-/config/recording-channels.txt}"
 BASE_DIR="${BASE_DIR:-/recordings}"
+SETTINGS_FILE="${SETTINGS_FILE:-/config/settings.json}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-30}"
 VIDEO_CRF="${VIDEO_CRF:-23}"
 VIDEO_PRESET="${VIDEO_PRESET:-veryfast}"
@@ -16,6 +17,10 @@ fi
 
 mkdir -p "$(dirname "$CHANNELS_FILE")" "$BASE_DIR"
 touch "$CHANNELS_FILE"
+if [[ ! -f "$SETTINGS_FILE" ]]; then
+    mkdir -p "$(dirname "$SETTINGS_FILE")"
+    printf '{"recording_active": true}\n' > "$SETTINGS_FILE"
+fi
 
 slugify() {
     local url="$1"
@@ -47,6 +52,10 @@ write_state() {
 resolve_stream_url() {
     local url="$1"
     "$YTDLP" --no-warnings --no-playlist -g "$url" 2>/dev/null | head -n 1
+}
+
+recording_is_active() {
+    [[ "$(jq -r '.recording_active // true' "$SETTINGS_FILE" 2>/dev/null)" == "true" ]]
 }
 
 is_recording() {
@@ -143,6 +152,14 @@ check_and_record() {
     log() {
         echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOGFILE"
     }
+
+    if ! recording_is_active; then
+        log "Recording inactive; skipping $CHECK_URL"
+        if [[ ! -f "$STATEFILE" ]]; then
+            write_state "$STATEFILE" "monitoring" "Paused"
+        fi
+        return
+    fi
 
     log "Checking $CHECK_URL"
 

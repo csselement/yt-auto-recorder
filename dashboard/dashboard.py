@@ -10,6 +10,8 @@ from flask import Flask, jsonify, render_template, request
 # Paths
 CHANNEL_LIST = os.environ.get("CHANNEL_LIST", "/config/recording-channels.txt")
 BASE_DIR = os.environ.get("BASE_DIR", "/recordings")
+SETTINGS_FILE = os.environ.get("SETTINGS_FILE", "/config/settings.json")
+DEFAULT_SETTINGS = {"recording_active": True}
 
 app = Flask(__name__)
 
@@ -24,6 +26,47 @@ def ensure_channel_file() -> None:
     os.makedirs(os.path.dirname(CHANNEL_LIST), exist_ok=True)
     if not os.path.exists(CHANNEL_LIST):
         open(CHANNEL_LIST, "a").close()
+
+def coerce_bool(value) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return bool(value)
+
+def ensure_settings_file() -> None:
+    os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+    if not os.path.exists(SETTINGS_FILE):
+        write_settings(DEFAULT_SETTINGS)
+
+def read_settings() -> dict:
+    try:
+        ensure_settings_file()
+        with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+
+    settings = DEFAULT_SETTINGS.copy()
+    settings.update({k: data[k] for k in settings.keys() & data.keys()})
+    settings["recording_active"] = coerce_bool(settings["recording_active"])
+    return settings
+
+def write_settings(settings: dict) -> None:
+    os.makedirs(os.path.dirname(SETTINGS_FILE), exist_ok=True)
+    current = DEFAULT_SETTINGS.copy()
+    current.update(settings)
+
+    directory = os.path.dirname(SETTINGS_FILE)
+    fd, temp_path = tempfile.mkstemp(prefix=".settings-", dir=directory, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(current, f, indent=2)
+            f.write("\n")
+        os.replace(temp_path, SETTINGS_FILE)
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 def normalize_channel_url(url: str) -> str:
     url = (url or "").strip()
@@ -130,6 +173,26 @@ def dashboard():
 @app.route("/status")
 def status():
     return jsonify(load_channels())
+
+@app.route("/settings", methods=["GET"])
+def get_settings():
+    return jsonify(read_settings())
+
+@app.route("/settings", methods=["PATCH"])
+def update_settings():
+    payload = request.get_json(silent=True) or {}
+    updates = {}
+
+    if "recording_active" in payload:
+        updates["recording_active"] = coerce_bool(payload["recording_active"])
+
+    if not updates:
+        return jsonify({"error": "No supported settings were provided."}), 400
+
+    settings = read_settings()
+    settings.update(updates)
+    write_settings(settings)
+    return jsonify(settings)
 
 @app.route("/channels", methods=["POST"])
 def add_channel():

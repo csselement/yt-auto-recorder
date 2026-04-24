@@ -8,6 +8,7 @@ services:
       - "8090:8090"
     environment:
       CHANNEL_LIST: /config/recording-channels.txt
+      SETTINGS_FILE: /config/settings.json
       BASE_DIR: /recordings
       CHECK_INTERVAL: 30
       VIDEO_CRF: 23

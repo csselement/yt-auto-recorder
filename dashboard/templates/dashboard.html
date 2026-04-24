@@ -30,6 +30,76 @@
             margin-bottom: 18px;
         }
 
+        .recorder-control {
+            align-items: center;
+            background: #1a1a1a;
+            border-radius: 5px;
+            display: flex;
+            gap: 14px;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            padding: 14px 16px;
+        }
+
+        .recorder-copy {
+            min-width: 0;
+        }
+
+        .recorder-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .recorder-state {
+            color: #aaa;
+            font-size: 13px;
+        }
+
+        .switch {
+            display: inline-flex;
+            flex: 0 0 auto;
+            position: relative;
+        }
+
+        .switch input {
+            height: 1px;
+            opacity: 0;
+            position: absolute;
+            width: 1px;
+        }
+
+        .slider {
+            background: #555;
+            border-radius: 999px;
+            cursor: pointer;
+            display: block;
+            height: 30px;
+            position: relative;
+            transition: background 0.2s;
+            width: 54px;
+        }
+
+        .slider::before {
+            background: #fff;
+            border-radius: 50%;
+            content: "";
+            height: 24px;
+            left: 3px;
+            position: absolute;
+            top: 3px;
+            transition: transform 0.2s;
+            width: 24px;
+        }
+
+        .switch input:checked + .slider {
+            background: #00a844;
+        }
+
+        .switch input:checked + .slider::before {
+            transform: translateX(24px);
+        }
+
         input {
             flex: 1;
             min-width: 0;
@@ -137,6 +207,7 @@
             }
 
             .toolbar,
+            .recorder-control,
             .channel {
                 flex-direction: column;
             }
@@ -153,6 +224,17 @@
     <main>
         <h1>Auto Live Recorder Dashboard</h1>
 
+        <div class="recorder-control">
+            <div class="recorder-copy">
+                <div class="recorder-title">Recording</div>
+                <div id="recorder-state" class="recorder-state">Loading</div>
+            </div>
+            <label class="switch" title="Enable or pause automatic recording">
+                <input id="recording-active" type="checkbox">
+                <span class="slider"></span>
+            </label>
+        </div>
+
         <form id="channel-form" class="toolbar">
             <input id="channel-url" type="url" placeholder="https://www.youtube.com/@channel" autocomplete="off" required>
             <button type="submit">Watch Channel</button>
@@ -164,6 +246,8 @@
 
     <script>
         const message = document.getElementById("message");
+        const recordingActive = document.getElementById("recording-active");
+        const recorderState = document.getElementById("recorder-state");
 
         function setMessage(text, isError = false) {
             message.textContent = text;
@@ -178,8 +262,17 @@
         }
 
         async function refresh() {
-            const response = await fetch("/status");
-            const data = await response.json();
+            const [statusResponse, settingsResponse] = await Promise.all([
+                fetch("/status"),
+                fetch("/settings")
+            ]);
+            const data = await statusResponse.json();
+            const settings = await settingsResponse.json();
+
+            recordingActive.checked = Boolean(settings.recording_active);
+            recorderState.textContent = settings.recording_active
+                ? "Active: live streams will be recorded"
+                : "Inactive: watch list is preserved, but new recordings will not start";
 
             const container = document.getElementById("channels");
             container.innerHTML = "";
@@ -227,6 +320,22 @@
             });
         }
 
+        async function updateRecordingActive(active) {
+            const response = await fetch("/settings", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ recording_active: active })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Unable to update recording setting.");
+
+            recordingActive.checked = Boolean(data.recording_active);
+            recorderState.textContent = data.recording_active
+                ? "Active: live streams will be recorded"
+                : "Inactive: watch list is preserved, but new recordings will not start";
+            setMessage(data.recording_active ? "Automatic recording is active." : "Automatic recording is inactive.");
+        }
+
         async function addChannel(url) {
             const response = await fetch("/channels", {
                 method: "POST",
@@ -261,6 +370,15 @@
                 await addChannel(input.value);
                 input.value = "";
             } catch (error) {
+                setMessage(error.message, true);
+            }
+        });
+
+        recordingActive.addEventListener("change", async event => {
+            try {
+                await updateRecordingActive(event.target.checked);
+            } catch (error) {
+                event.target.checked = !event.target.checked;
                 setMessage(error.message, true);
             }
         });
