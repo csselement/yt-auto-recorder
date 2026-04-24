@@ -51,13 +51,13 @@ volumes:
 The Ugreen Docker app works best when the Compose project uses a prebuilt image. Build and publish your image from a computer with Docker, then use `docker-compose.ugreen.yml` in the NAS Docker app.
 
 1. Create a Docker Hub account.
-2. Replace `YOUR_DOCKERHUB_USERNAME` in `docker-compose.ugreen.yml` with your Docker Hub username.
+2. Replace `USERNAME` in `docker-compose.ugreen.yml` with your Docker Hub username.
 3. Build and push a multi-architecture image:
 
 ```bash
 docker login
 docker buildx create --use --name yt-auto-recorder-builder
-docker buildx build --platform linux/amd64,linux/arm64 -t YOUR_DOCKERHUB_USERNAME/yt-auto-recorder:latest --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t USERNAME/yt-auto-recorder:latest --push .
 ```
 
 4. In UGOS Pro, open Docker from App Center.

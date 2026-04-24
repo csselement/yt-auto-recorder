@@ -1,6 +1,6 @@
 services:
   yt-auto-recorder:
-    image: csselement/yt-auto-recorder:latest
+    image: USERNAME/yt-auto-recorder:latest
     container_name: yt-auto-recorder
     platform: linux/amd64
     restart: unless-stopped
