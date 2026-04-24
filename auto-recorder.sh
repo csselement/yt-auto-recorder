@@ -228,13 +228,16 @@ check_and_record() {
     }
 
     if ! channel_is_active "$URL"; then
-        log "Channel recording inactive; skipping $CHECK_URL"
+        if is_recording "$LOCKFILE"; then
+            log "Channel inactive for future recordings; current recording continues."
+            return
+        fi
+
+        log "Channel recording inactive; skipping future start for $CHECK_URL"
         if [[ ! -f "$STATEFILE" ]]; then
             write_state "$STATEFILE" "monitoring" "Paused"
         fi
-        if ! is_recording "$LOCKFILE"; then
-            finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE"
-        fi
+        finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE"
         return
     fi
 
