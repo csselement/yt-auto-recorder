@@ -11,43 +11,6 @@ Docker packages the recorder, dashboard, `yt-dlp`, `ffmpeg`, and their dependenc
 - `/config`: stores the watch list file.
 - `/recordings`: stores downloaded livestream archives.
 
-## Run Locally
-
-From this folder:
-
-```bash
-docker compose up -d --build
-```
-
-If Docker Desktop is not running yet, start Docker Desktop first and wait until it says Docker is running.
-
-Open:
-
-```text
-http://localhost:8090
-```
-
-The dashboard lets you add and remove YouTube channels from the watch list. Removing a channel only stops future watching; existing recordings stay on disk.
-
-## Folders Created
-
-With the included `docker-compose.yml`, files are stored here:
-
-```text
-./data/config/recording-channels.txt
-./data/recordings/
-```
-
-For the NAS, change the left side of the two volume lines in `docker-compose.yml` to real folders on your Ugreen storage.
-
-Example:
-
-```yaml
-volumes:
-  - /volume1/docker/yt-auto-recorder/config:/config
-  - /volume1/Recordings/YouTube:/recordings
-```
-
 ## Easy Ugreen Docker App Install
 
 The easiest way to install this on a Ugreen NAS is to pull the published image from Docker Hub using the Ugreen NAS desktop Docker app.
@@ -90,6 +53,43 @@ http://192.168.8.206:8090
 ```
 
 Use `http`, not `https`, unless you put this behind your own reverse proxy.
+
+## Run Locally
+
+From this folder:
+
+```bash
+docker compose up -d --build
+```
+
+If Docker Desktop is not running yet, start Docker Desktop first and wait until it says Docker is running.
+
+Open:
+
+```text
+http://localhost:8090
+```
+
+The dashboard lets you add and remove YouTube channels from the watch list. Removing a channel only stops future watching; existing recordings stay on disk.
+
+## Folders Created
+
+With the included `docker-compose.yml`, files are stored here:
+
+```text
+./data/config/recording-channels.txt
+./data/recordings/
+```
+
+For the NAS, change the left side of the two volume lines in `docker-compose.yml` to real folders on your Ugreen storage.
+
+Example:
+
+```yaml
+volumes:
+  - /volume1/docker/yt-auto-recorder/config:/config
+  - /volume1/Recordings/YouTube:/recordings
+```
 
 ## Ugreen Docker Compose Install
 
