@@ -1,0 +1,18 @@
+services:
+  yt-auto-recorder:
+    image: csselement/yt-auto-recorder:latest
+    container_name: yt-auto-recorder
+    platform: linux/amd64
+    restart: unless-stopped
+    ports:
+      - "8090:8090"
+    environment:
+      CHANNEL_LIST: /config/recording-channels.txt
+      BASE_DIR: /recordings
+      CHECK_INTERVAL: 30
+      VIDEO_CRF: 23
+      VIDEO_PRESET: veryfast
+      AUDIO_BITRATE: 192k
+    volumes:
+      - ./config:/config
+      - ./recordings:/recordings

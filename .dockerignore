@@ -1,0 +1,7 @@
+data/
+*.log
+*.mp4
+*.mkv
+__pycache__/
+.DS_Store
+.git/

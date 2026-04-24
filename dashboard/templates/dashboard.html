@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Auto Live Recorder Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: #111;
+            color: #eee;
+        }
+
+        main {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin: 0 0 20px;
+            font-weight: 600;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        input {
+            flex: 1;
+            min-width: 0;
+            border: 1px solid #333;
+            border-radius: 5px;
+            background: #181818;
+            color: #eee;
+            font-size: 14px;
+            padding: 11px 12px;
+        }
+
+        button {
+            border: 0;
+            border-radius: 5px;
+            background: #2f80ed;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            padding: 0 14px;
+            min-height: 42px;
+        }
+
+        button:hover {
+            background: #3d8df5;
+        }
+
+        .remove {
+            align-self: center;
+            background: #332222;
+            color: #ffb3b3;
+            margin-left: 14px;
+        }
+
+        .remove:hover {
+            background: #552828;
+        }
+
+        .message {
+            min-height: 20px;
+            color: #aaa;
+            font-size: 13px;
+            margin-bottom: 14px;
+        }
+
+        /* Wrapper for left accent */
+        .channel-wrapper {
+            display: flex;
+            margin-bottom: 14px;
+        }
+
+        /* Left accent bar */
+        .channel-accent {
+            width: 12px;
+            border-radius: 5px 0 0 5px;
+            background-color: #222;
+            transition: background-color 0.5s;
+        }
+
+        /* Main tile content */
+        .channel {
+            background: #1a1a1a;
+            border-radius: 0 5px 5px 0;
+            padding: 16px 20px;
+            flex: 1;
+            display: flex;
+            gap: 12px;
+            justify-content: space-between;
+        }
+
+        .channel-body {
+            min-width: 0;
+        }
+
+        .channel-title {
+            font-size: 17px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            word-break: break-word;
+        }
+
+        .info {
+            font-size: 13px;
+            color: #aaa;
+        }
+
+        a {
+            color: #88c3ff;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+
+        /* Status colors */
+        .recording { background-color: #00cc44 !important; }
+        .monitoring { background-color: #cc0 !important; }
+        .remuxing { background-color: #0af !important; }
+        .offline { background-color: #555 !important; }
+        .error { background-color: #f33 !important; }
+
+        @media (max-width: 640px) {
+            body {
+                padding: 14px;
+            }
+
+            .toolbar,
+            .channel {
+                flex-direction: column;
+            }
+
+            .remove {
+                align-self: flex-start;
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <main>
+        <h1>Auto Live Recorder Dashboard</h1>
+
+        <form id="channel-form" class="toolbar">
+            <input id="channel-url" type="url" placeholder="https://www.youtube.com/@channel" autocomplete="off" required>
+            <button type="submit">Watch Channel</button>
+        </form>
+
+        <div id="message" class="message"></div>
+        <div id="channels"></div>
+    </main>
+
+    <script>
+        const message = document.getElementById("message");
+
+        function setMessage(text, isError = false) {
+            message.textContent = text;
+            message.style.color = isError ? "#ff9a9a" : "#aaa";
+        }
+
+        function createText(tag, className, text) {
+            const node = document.createElement(tag);
+            node.className = className;
+            node.textContent = text;
+            return node;
+        }
+
+        async function refresh() {
+            const response = await fetch("/status");
+            const data = await response.json();
+
+            const container = document.getElementById("channels");
+            container.innerHTML = "";
+
+            data.forEach(ch => {
+                const wrapper = document.createElement("div");
+                wrapper.className = "channel-wrapper";
+
+                const accent = document.createElement("div");
+                accent.className = "channel-accent " + ch.status;
+
+                const tile = document.createElement("div");
+                tile.className = "channel";
+
+                const body = document.createElement("div");
+                body.className = "channel-body";
+                body.appendChild(createText("div", "channel-title", ch.id));
+
+                const info = document.createElement("div");
+                info.className = "info";
+                info.appendChild(document.createTextNode(`Status: ${ch.status}`));
+                info.appendChild(document.createElement("br"));
+                info.appendChild(document.createTextNode(`Last seen: ${ch.last_seen || "Never seen"}`));
+                info.appendChild(document.createElement("br"));
+
+                const link = document.createElement("a");
+                link.href = ch.url;
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+                link.textContent = ch.url;
+                info.appendChild(link);
+                body.appendChild(info);
+
+                const removeButton = document.createElement("button");
+                removeButton.className = "remove";
+                removeButton.type = "button";
+                removeButton.textContent = "Remove";
+                removeButton.addEventListener("click", () => removeChannel(ch.url));
+
+                wrapper.appendChild(accent);
+                tile.appendChild(body);
+                tile.appendChild(removeButton);
+                wrapper.appendChild(tile);
+                container.appendChild(wrapper);
+            });
+        }
+
+        async function addChannel(url) {
+            const response = await fetch("/channels", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Unable to add channel.");
+            setMessage("Channel added. The recorder will check it on the next scan.");
+            await refresh();
+        }
+
+        async function removeChannel(url) {
+            const response = await fetch("/channels", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url })
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                setMessage(data.error || "Unable to remove channel.", true);
+                return;
+            }
+            setMessage("Channel removed from the watch list. Existing recordings were kept.");
+            await refresh();
+        }
+
+        document.getElementById("channel-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            const input = document.getElementById("channel-url");
+            try {
+                await addChannel(input.value);
+                input.value = "";
+            } catch (error) {
+                setMessage(error.message, true);
+            }
+        });
+
+        setInterval(refresh, 60000);
+        refresh();
+    </script>
+</body>
+</html>
