@@ -48,12 +48,78 @@ volumes:
   - /volume1/Recordings/YouTube:/recordings
 ```
 
-## Ugreen Docker App Install
+## Easy Ugreen Docker App Install
 
-The Ugreen Docker app works best when the Compose project uses a prebuilt image. Build and publish your image from a computer with Docker, then use `docker-compose.ugreen.yml` in the NAS Docker app.
+The easiest way to install this on a Ugreen NAS is to pull the published image from Docker Hub using the Ugreen NAS desktop Docker app.
 
-1. Create a Docker Hub account.
-2. Replace every `USERNAME` placeholder with your Docker Hub login name.
+1. Open the Ugreen NAS desktop.
+2. Open the Docker app.
+3. Click Image.
+4. Search for:
+
+```text
+csselement/yt-auto-recorder
+```
+
+5. Pull the image from Docker Hub.
+6. Create a container from the image.
+7. Set the container port mapping:
+
+```text
+8090 -> 8090
+```
+
+8. Add two folder mappings:
+
+```text
+/config      stores the watch list
+/recordings  stores the finished livestream recordings
+```
+
+9. Start the container.
+10. Open the dashboard:
+
+```text
+http://NAS_IP_ADDRESS:8090
+```
+
+For example, if your NAS IP is `192.168.8.206`, open:
+
+```text
+http://192.168.8.206:8090
+```
+
+Use `http`, not `https`, unless you put this behind your own reverse proxy.
+
+## Ugreen Docker Compose Install
+
+If you prefer using a Docker Compose project in the Ugreen Docker app, use `docker-compose.ugreen.yml`. The published image is:
+
+```text
+csselement/yt-auto-recorder:latest
+```
+
+In UGOS Pro:
+
+1. Open Docker from the Ugreen NAS desktop.
+2. Go to Project > Create.
+3. Paste or upload the contents of `docker-compose.ugreen.yml`.
+4. Click Deploy.
+5. Open `http://NAS_IP_ADDRESS:8090`.
+
+The NAS template uses project-relative folders:
+
+```yaml
+volumes:
+  - ./config:/config
+  - ./recordings:/recordings
+```
+
+This avoids Ugreen's "NAS path not found" validation error. If you want recordings in a specific shared folder, create that folder first in Ugreen File Manager, then replace `./recordings` with the real NAS path.
+
+## Build Your Own Image
+
+If you fork this project or want to publish your own Docker image, replace every `USERNAME` placeholder with your Docker Hub login name.
 
 For example, if your Docker Hub login is `janedoe`, then:
 
@@ -67,29 +133,13 @@ becomes:
 janedoe/yt-auto-recorder:latest
 ```
 
-3. Build and push a multi-architecture image:
+Then build and push a multi-architecture image:
 
 ```bash
 docker login
 docker buildx create --use --name yt-auto-recorder-builder
 docker buildx build --platform linux/amd64,linux/arm64 -t USERNAME/yt-auto-recorder:latest --push .
 ```
-
-4. In UGOS Pro, open Docker from App Center.
-5. Go to Project > Create.
-6. Paste or upload the contents of `docker-compose.ugreen.yml`.
-7. Click Deploy.
-8. Open `http://NAS_IP_ADDRESS:8090`.
-
-The NAS template uses project-relative folders:
-
-```yaml
-volumes:
-  - ./config:/config
-  - ./recordings:/recordings
-```
-
-This avoids Ugreen's "NAS path not found" validation error. If you want recordings in a specific shared folder, create that folder first in Ugreen File Manager, then replace `./recordings` with the real NAS path.
 
 ## Useful Commands
 
