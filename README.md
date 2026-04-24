@@ -182,6 +182,6 @@ These environment variables are available in `docker-compose.yml`:
 ## Notes
 
 - The dashboard listens on port `8090`.
-- The recorder keeps one folder per watched URL under the recordings directory.
+- The recorder keeps one folder per watched channel under the recordings directory, with that channel's recordings saved inside it.
 - If one channel is recording, other channels continue being checked.
 - Active recordings are first written as `.mkv` files. When a stream ends, the archive is transcoded to H.264 `.mp4` with 192 kbps MP3 audio.
