@@ -87,29 +87,42 @@ record_stream() {
         echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$logfile"
     }
 
-    local stream_url
-    stream_url=$(resolve_stream_url "$url")
-    if [[ -z "$stream_url" ]]; then
-        write_state "$statefile" "error" "$(date '+%Y-%m-%d %H:%M:%S')"
-        log "WARNING: Unable to get stream URL for $url"
-        return
-    fi
-
     local timestamp out_mkv out_mp4
     timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
     out_mkv="$ch_dir/${timestamp}.mkv"
     out_mp4="$ch_dir/${timestamp}.mp4"
 
-    log "--- LIVE detected. Starting MKV recording: $out_mkv ---"
+    log "--- LIVE detected. Attempting live-from-start MKV recording: $out_mkv ---"
     write_state "$statefile" "recording" "$timestamp"
 
-    ffmpeg -y \
-        -loglevel warning \
-        -i "$stream_url" \
-        -map 0 \
-        -c copy \
-        -f matroska \
-        "$out_mkv" >> "$logfile" 2>&1
+    "$YTDLP" \
+        --no-warnings \
+        --no-playlist \
+        --no-part \
+        --live-from-start \
+        --hls-use-mpegts \
+        --merge-output-format mkv \
+        -o "$out_mkv" \
+        "$url" >> "$logfile" 2>&1
+
+    if [[ ! -s "$out_mkv" ]]; then
+        log "--- live-from-start did not produce a recording. Falling back to direct stream capture. ---"
+        local stream_url
+        stream_url=$(resolve_stream_url "$url")
+        if [[ -z "$stream_url" ]]; then
+            write_state "$statefile" "error" "$(date '+%Y-%m-%d %H:%M:%S')"
+            log "WARNING: Unable to get stream URL for $url"
+            return
+        fi
+
+        ffmpeg -y \
+            -loglevel warning \
+            -i "$stream_url" \
+            -map 0 \
+            -c copy \
+            -f matroska \
+            "$out_mkv" >> "$logfile" 2>&1
+    fi
 
     log "--- Recording stopped. Transcoding to H.264 MP4 with ${AUDIO_BITRATE} MP3 audio ---"
     write_state "$statefile" "remuxing" "$(date '+%Y-%m-%d %H:%M:%S')"

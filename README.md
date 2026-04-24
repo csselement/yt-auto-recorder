@@ -75,6 +75,8 @@ The dashboard lets you add and remove YouTube channels from the watch list. Remo
 
 The dashboard also includes an Auto-record switch for each watched channel. Turn a channel off to keep it in the list while preventing new automatic recordings for that channel. If the channel is already recording, the current recording is left running and the switch applies to future automatic starts.
 
+When a channel is added or switched back to Auto-record while it is already live, the recorder first attempts to capture the stream from the beginning using YouTube's live rewind/DVR data. If YouTube does not expose the beginning of the stream, the recorder falls back to recording from the current live position.
+
 ## Folders Created
 
 With the included `docker-compose.yml`, files are stored here:
@@ -189,4 +191,5 @@ These environment variables are available in `docker-compose.yml`:
 - The recorder keeps one folder per watched channel under the recordings directory, with that channel's recordings saved inside it.
 - Each channel's Auto-record switch pauses new recording starts for that channel without deleting it from the watched channel list.
 - If one channel is recording, other channels continue being checked.
+- When a channel is added or reactivated during a livestream, the recorder attempts `yt-dlp --live-from-start` before falling back to current-position capture.
 - Active recordings are first written as `.mkv` files. When a stream ends, the archive is transcoded to H.264 `.mp4` with 192 kbps MP3 audio.
