@@ -19,7 +19,7 @@ mkdir -p "$(dirname "$CHANNELS_FILE")" "$BASE_DIR"
 touch "$CHANNELS_FILE"
 if [[ ! -f "$SETTINGS_FILE" ]]; then
     mkdir -p "$(dirname "$SETTINGS_FILE")"
-    printf '{"recording_active": true}\n' > "$SETTINGS_FILE"
+    printf '{"channels": {}}\n' > "$SETTINGS_FILE"
 fi
 
 slugify() {
@@ -54,8 +54,9 @@ resolve_stream_url() {
     "$YTDLP" --no-warnings --no-playlist -g "$url" 2>/dev/null | head -n 1
 }
 
-recording_is_active() {
-    [[ "$(jq -r '.recording_active // true' "$SETTINGS_FILE" 2>/dev/null)" == "true" ]]
+channel_is_active() {
+    local url="$1"
+    [[ "$(jq -r --arg url "$url" '.channels[$url].active // .recording_active // true' "$SETTINGS_FILE" 2>/dev/null)" == "true" ]]
 }
 
 is_recording() {
@@ -153,8 +154,8 @@ check_and_record() {
         echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOGFILE"
     }
 
-    if ! recording_is_active; then
-        log "Recording inactive; skipping $CHECK_URL"
+    if ! channel_is_active "$URL"; then
+        log "Channel recording inactive; skipping $CHECK_URL"
         if [[ ! -f "$STATEFILE" ]]; then
             write_state "$STATEFILE" "monitoring" "Paused"
         fi

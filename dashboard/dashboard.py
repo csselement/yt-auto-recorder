@@ -11,7 +11,7 @@ from flask import Flask, jsonify, render_template, request
 CHANNEL_LIST = os.environ.get("CHANNEL_LIST", "/config/recording-channels.txt")
 BASE_DIR = os.environ.get("BASE_DIR", "/recordings")
 SETTINGS_FILE = os.environ.get("SETTINGS_FILE", "/config/settings.json")
-DEFAULT_SETTINGS = {"recording_active": True}
+DEFAULT_SETTINGS = {"channels": {}}
 
 app = Flask(__name__)
 
@@ -49,7 +49,19 @@ def read_settings() -> dict:
 
     settings = DEFAULT_SETTINGS.copy()
     settings.update({k: data[k] for k in settings.keys() & data.keys()})
-    settings["recording_active"] = coerce_bool(settings["recording_active"])
+    if not isinstance(settings["channels"], dict):
+        settings["channels"] = {}
+
+    # Migrate the old global recording switch into per-channel settings.
+    if "recording_active" in data and not settings["channels"]:
+        active = coerce_bool(data["recording_active"])
+        settings["channels"] = {url: {"active": active} for url in read_channel_urls()}
+
+    for url, channel_settings in list(settings["channels"].items()):
+        if not isinstance(channel_settings, dict):
+            settings["channels"][url] = {"active": coerce_bool(channel_settings)}
+        else:
+            settings["channels"][url]["active"] = coerce_bool(channel_settings.get("active", True))
     return settings
 
 def write_settings(settings: dict) -> None:
@@ -67,6 +79,10 @@ def write_settings(settings: dict) -> None:
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+def channel_is_active(url: str, settings: dict | None = None) -> bool:
+    settings = settings or read_settings()
+    return coerce_bool(settings.get("channels", {}).get(url, {}).get("active", True))
 
 def normalize_channel_url(url: str) -> str:
     url = (url or "").strip()
@@ -145,9 +161,11 @@ def load_channels() -> list:
     Load all channels from CHANNEL_LIST with their current state
     """
     channels = []
+    settings = read_settings()
     for url in read_channel_urls():
         chname = slugify(url)
         status, last_seen = load_state(chname)
+        active = channel_is_active(url, settings)
 
         # Fix display for dashboard
         if last_seen is None or str(last_seen).lower() in ["unknown", "never"]:
@@ -161,7 +179,8 @@ def load_channels() -> list:
             "url": url,
             "id": chname,
             "status": status,
-            "last_seen": last_seen_display
+            "last_seen": last_seen_display,
+            "active": active
         })
 
     return sort_channels(channels)
@@ -180,19 +199,7 @@ def get_settings():
 
 @app.route("/settings", methods=["PATCH"])
 def update_settings():
-    payload = request.get_json(silent=True) or {}
-    updates = {}
-
-    if "recording_active" in payload:
-        updates["recording_active"] = coerce_bool(payload["recording_active"])
-
-    if not updates:
-        return jsonify({"error": "No supported settings were provided."}), 400
-
-    settings = read_settings()
-    settings.update(updates)
-    write_settings(settings)
-    return jsonify(settings)
+    return jsonify({"error": "Use PATCH /channels to update channel settings."}), 400
 
 @app.route("/channels", methods=["POST"])
 def add_channel():
@@ -208,8 +215,35 @@ def add_channel():
         return jsonify({"error": "That channel is already being watched."}), 409
 
     urls.append(url)
+    settings = read_settings()
+    settings.setdefault("channels", {}).setdefault(url, {"active": True})
+    write_settings(settings)
     write_channel_urls(urls)
     return jsonify({"ok": True, "channels": load_channels()}), 201
+
+@app.route("/channels", methods=["PATCH"])
+def update_channel():
+    payload = request.get_json(silent=True) or {}
+    url = (payload.get("url", "") or "").strip()
+    if not url:
+        return jsonify({"error": "Channel URL is required."}), 400
+
+    urls = read_channel_urls()
+    match = next((item for item in urls if item.rstrip("/").lower() == url.rstrip("/").lower()), None)
+    if not match:
+        return jsonify({"error": "That channel was not found."}), 404
+
+    updates = {}
+    if "active" in payload:
+        updates["active"] = coerce_bool(payload["active"])
+
+    if not updates:
+        return jsonify({"error": "No supported channel settings were provided."}), 400
+
+    settings = read_settings()
+    settings.setdefault("channels", {}).setdefault(match, {"active": True}).update(updates)
+    write_settings(settings)
+    return jsonify({"ok": True, "channels": load_channels()})
 
 @app.route("/channels", methods=["DELETE"])
 def remove_channel():
@@ -224,6 +258,14 @@ def remove_channel():
         return jsonify({"error": "That channel was not found."}), 404
 
     write_channel_urls(filtered)
+    settings = read_settings()
+    settings.get("channels", {}).pop(url, None)
+    settings["channels"] = {
+        item_url: item_settings
+        for item_url, item_settings in settings.get("channels", {}).items()
+        if item_url.rstrip("/").lower() != url.rstrip("/").lower()
+    }
+    write_settings(settings)
     return jsonify({"ok": True, "channels": load_channels()})
 
 if __name__ == "__main__":
