@@ -192,4 +192,4 @@ These environment variables are available in `docker-compose.yml`:
 - Each channel's Auto-record switch pauses new recording starts for that channel without deleting it from the watched channel list.
 - If one channel is recording, other channels continue being checked.
 - When a channel is added or reactivated during a livestream, the recorder attempts `yt-dlp --live-from-start` before falling back to current-position capture.
-- Active recordings are first written as `.mkv` files. When a stream ends, the archive is transcoded to H.264 `.mp4` with 192 kbps MP3 audio.
+- Active recordings are first written as `.mkv` files. When a stream ends, leftover `.mkv` files are finalized into H.264 `.mp4` with 192 kbps MP3 audio. If more than one `.mkv` file is present for a channel, the recorder concatenates them sequentially before creating the final MP4.

@@ -75,6 +75,90 @@ is_recording() {
     return 1
 }
 
+transcode_to_mp4() {
+    local input="$1"
+    local output="$2"
+    local logfile="$3"
+
+    ffmpeg -y \
+        -loglevel warning \
+        -i "$input" \
+        -map 0:v:0 \
+        -map 0:a? \
+        -c:v libx264 \
+        -preset "$VIDEO_PRESET" \
+        -crf "$VIDEO_CRF" \
+        -c:a libmp3lame \
+        -b:a "$AUDIO_BITRATE" \
+        -movflags +faststart \
+        "$output" >> "$logfile" 2>&1
+}
+
+concat_transcode_to_mp4() {
+    local listfile="$1"
+    local output="$2"
+    local logfile="$3"
+
+    ffmpeg -y \
+        -loglevel warning \
+        -f concat \
+        -safe 0 \
+        -i "$listfile" \
+        -map 0:v:0 \
+        -map 0:a? \
+        -c:v libx264 \
+        -preset "$VIDEO_PRESET" \
+        -crf "$VIDEO_CRF" \
+        -c:a libmp3lame \
+        -b:a "$AUDIO_BITRATE" \
+        -movflags +faststart \
+        "$output" >> "$logfile" 2>&1
+}
+
+finalize_mkvs() {
+    local ch_dir="$1"
+    local logfile="$2"
+    local statefile="$3"
+    local lockfile="$4"
+
+    mapfile -t mkvs < <(find "$ch_dir" -maxdepth 1 -type f -name "*.mkv" | sort)
+    if [[ "${#mkvs[@]}" -eq 0 ]]; then
+        rm -f "$lockfile"
+        return 0
+    fi
+
+    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalizing ${#mkvs[@]} MKV file(s) to H.264 MP4 with ${AUDIO_BITRATE} MP3 audio ---" | tee -a "$logfile"
+    write_state "$statefile" "remuxing" "$(date '+%Y-%m-%d %H:%M:%S')"
+
+    local output
+    if [[ "${#mkvs[@]}" -eq 1 ]]; then
+        output="${mkvs[0]%.mkv}.mp4"
+        transcode_to_mp4 "${mkvs[0]}" "$output" "$logfile"
+    else
+        local first_base listfile escaped
+        first_base="$(basename "${mkvs[0]}" .mkv)"
+        output="$ch_dir/${first_base}_combined.mp4"
+        listfile="$(mktemp "$ch_dir/.concat-XXXXXX.txt")"
+        for mkv in "${mkvs[@]}"; do
+            escaped="${mkv//\'/\'\\\'\'}"
+            printf "file '%s'\n" "$escaped" >> "$listfile"
+        done
+        concat_transcode_to_mp4 "$listfile" "$output" "$logfile"
+        rm -f "$listfile"
+    fi
+
+    if [[ -s "$output" ]]; then
+        rm -f "${mkvs[@]}" "$lockfile"
+        write_state "$statefile" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize successful. MKV file(s) removed. Output: $output ---" | tee -a "$logfile"
+        return 0
+    fi
+
+    write_state "$statefile" "error" "$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize FAILED. MKV file(s) kept for safety. ---" | tee -a "$logfile"
+    return 1
+}
+
 record_stream() {
     local url="$1"
     local ch_dir="$2"
@@ -87,10 +171,9 @@ record_stream() {
         echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$logfile"
     }
 
-    local timestamp out_mkv out_mp4
+    local timestamp out_mkv
     timestamp=$(date '+%Y-%m-%d_%H-%M-%S')
     out_mkv="$ch_dir/${timestamp}.mkv"
-    out_mp4="$ch_dir/${timestamp}.mp4"
 
     log "--- LIVE detected. Attempting live-from-start MKV recording: $out_mkv ---"
     write_state "$statefile" "recording" "$timestamp"
@@ -124,31 +207,8 @@ record_stream() {
             "$out_mkv" >> "$logfile" 2>&1
     fi
 
-    log "--- Recording stopped. Transcoding to H.264 MP4 with ${AUDIO_BITRATE} MP3 audio ---"
-    write_state "$statefile" "remuxing" "$(date '+%Y-%m-%d %H:%M:%S')"
-
-    ffmpeg -y \
-        -loglevel warning \
-        -i "$out_mkv" \
-        -map 0:v:0 \
-        -map 0:a? \
-        -c:v libx264 \
-        -preset "$VIDEO_PRESET" \
-        -crf "$VIDEO_CRF" \
-        -c:a libmp3lame \
-        -b:a "$AUDIO_BITRATE" \
-        -movflags +faststart \
-        "$out_mp4" >> "$logfile" 2>&1
-
-    if [[ -s "$out_mp4" ]]; then
-        rm -f "$out_mkv"
-        log "--- Transcode successful. MKV removed. Output: $out_mp4 ---"
-    else
-        log "--- Transcode FAILED. MKV kept for safety. ---"
-    fi
-
-    write_state "$statefile" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
-    log "--- Stream ended. Marked OFFLINE. ---"
+    log "--- Recording stopped. Finalizing MKV file(s). ---"
+    finalize_mkvs "$ch_dir" "$logfile" "$statefile" "$lockfile"
 }
 
 check_and_record() {
@@ -171,6 +231,9 @@ check_and_record() {
         log "Channel recording inactive; skipping $CHECK_URL"
         if [[ ! -f "$STATEFILE" ]]; then
             write_state "$STATEFILE" "monitoring" "Paused"
+        fi
+        if ! is_recording "$LOCKFILE"; then
+            finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE"
         fi
         return
     fi
@@ -199,6 +262,9 @@ check_and_record() {
             fi
         else
             write_state "$STATEFILE" "monitoring" "Never"
+        fi
+        if ! is_recording "$LOCKFILE"; then
+            finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE"
         fi
         return
     fi
