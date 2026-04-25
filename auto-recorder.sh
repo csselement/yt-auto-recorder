@@ -6,6 +6,7 @@ BASE_DIR="${BASE_DIR:-/recordings}"
 SETTINGS_FILE="${SETTINGS_FILE:-/config/settings.json}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-30}"
 FINALIZE_MODE="${FINALIZE_MODE:-remux}"
+YTDLP_FORMAT="${YTDLP_FORMAT:-bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[vcodec^=avc1][acodec^=mp4a]/best}"
 VIDEO_CRF="${VIDEO_CRF:-23}"
 VIDEO_PRESET="${VIDEO_PRESET:-veryfast}"
 AUDIO_BITRATE="${AUDIO_BITRATE:-192k}"
@@ -52,7 +53,7 @@ write_state() {
 
 resolve_stream_url() {
     local url="$1"
-    "$YTDLP" --no-warnings --no-playlist -g "$url" 2>/dev/null | head -n 1
+    "$YTDLP" --no-warnings --no-playlist -f "$YTDLP_FORMAT" -g "$url" 2>/dev/null | head -n 1
 }
 
 channel_is_active() {
@@ -223,6 +224,7 @@ record_stream() {
         --no-part \
         --live-from-start \
         --hls-use-mpegts \
+        -f "$YTDLP_FORMAT" \
         --merge-output-format mkv \
         -o "$out_mkv" \
         "$url" >> "$logfile" 2>&1

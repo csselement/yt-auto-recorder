@@ -12,6 +12,7 @@ services:
       BASE_DIR: /recordings
       CHECK_INTERVAL: 30
       FINALIZE_MODE: remux
+      YTDLP_FORMAT: "bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[vcodec^=avc1][acodec^=mp4a]/best"
       VIDEO_CRF: 23
       VIDEO_PRESET: veryfast
       AUDIO_BITRATE: 192k
