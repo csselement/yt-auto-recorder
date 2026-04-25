@@ -167,16 +167,17 @@ def parse_state_time(value):
 
 def sort_channels(channels: list) -> list:
     """
-    Sort channels by: currently recording → live start time → last seen.
+    Sort channels by: actively recording → stream start time → last seen.
     """
     oldest = datetime(1970, 1, 1)
 
     def key(channel):
         state_time = channel.get("state_time") or oldest
-        recording_rank = 0 if channel["status"] == "recording" else 1
-        live_start_rank = -state_time.timestamp() if channel["status"] == "recording" else 0
-        last_seen_rank = -state_time.timestamp() if channel["status"] != "recording" else 0
-        return (recording_rank, live_start_rank, last_seen_rank, channel["name"].lower())
+        is_recording = channel["status"] == "recording"
+        hierarchy_rank = 0 if is_recording else 1
+        stream_start_rank = state_time.timestamp() if is_recording else 0
+        last_seen_rank = -state_time.timestamp() if not is_recording else 0
+        return (hierarchy_rank, stream_start_rank, last_seen_rank, channel["name"].lower())
 
     sorted_channels = sorted(channels, key=key)
     for channel in sorted_channels:
