@@ -5,12 +5,53 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style>
+        :root {
+            /* Radix-inspired dark palette composition:
+               gray for neutrals, blue for accent, semantic status scales. */
+            --gray-1: #111111;
+            --gray-2: #191919;
+            --gray-3: #222222;
+            --gray-4: #2a2a2a;
+            --gray-5: #313131;
+            --gray-8: #606060;
+            --gray-9: #6e6e6e;
+            --gray-11: #b4b4b4;
+            --gray-12: #eeeeee;
+
+            --blue-7: #205d9e;
+            --blue-8: #2870bd;
+            --blue-9: #0090ff;
+            --blue-10: #3b9eff;
+            --blue-11: #70b8ff;
+
+            --red-7: #8c333a;
+            --red-8: #b54548;
+            --red-9: #e5484d;
+            --red-10: #ec5d5e;
+            --red-11: #ff9592;
+
+            --yellow-7: #8f6424;
+            --yellow-8: #ab7c2a;
+            --yellow-9: #ffe629;
+
+            --green-7: #2b7a4b;
+            --green-8: #2f8c57;
+            --green-9: #30a46c;
+
+            --panel: var(--gray-2);
+            --panel-strong: var(--gray-3);
+            --border: var(--gray-5);
+            --text: var(--gray-12);
+            --muted: var(--gray-11);
+            --focus: var(--blue-11);
+        }
+
         body {
             margin: 0;
             padding: 20px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background: #111;
-            color: #eee;
+            background: var(--gray-1);
+            color: var(--text);
         }
 
         main {
@@ -48,7 +89,7 @@
         }
 
         .slider {
-            background: #555;
+            background: var(--gray-8);
             border-radius: 999px;
             cursor: pointer;
             display: block;
@@ -59,7 +100,7 @@
         }
 
         .slider::before {
-            background: #fff;
+            background: var(--gray-12);
             border-radius: 50%;
             content: "";
             height: 20px;
@@ -71,7 +112,7 @@
         }
 
         .switch input:checked + .slider {
-            background: #00a844;
+            background: var(--green-8);
         }
 
         .switch input:checked + .slider::before {
@@ -81,10 +122,10 @@
         input {
             flex: 1;
             min-width: 0;
-            border: 1px solid #333;
+            border: 1px solid var(--border);
             border-radius: 5px;
-            background: #181818;
-            color: #eee;
+            background: var(--panel);
+            color: var(--text);
             font-size: 14px;
             padding: 11px 12px;
         }
@@ -104,7 +145,7 @@
         button {
             border: 0;
             border-radius: 5px;
-            background: #2f80ed;
+            background: var(--blue-8);
             color: white;
             cursor: pointer;
             font-size: 14px;
@@ -114,15 +155,15 @@
         }
 
         button:hover {
-            background: #3d8df5;
+            background: var(--blue-9);
         }
 
         .remove {
             align-self: center;
             align-items: center;
-            background: #555;
+            background: var(--gray-8);
             border-radius: 50%;
-            color: #fff;
+            color: var(--gray-12);
             display: inline-flex;
             font-size: 16px;
             height: 24px;
@@ -135,13 +176,13 @@
         }
 
         .remove:hover {
-            background: #666;
+            background: var(--gray-9);
             text-decoration: none;
         }
 
         .remove.confirm {
-            background: #7a1f2a;
-            color: #fff;
+            background: var(--red-9);
+            color: white;
         }
 
         .channel-actions {
@@ -154,7 +195,7 @@
 
         .message {
             min-height: 20px;
-            color: #aaa;
+            color: var(--muted);
             font-size: 13px;
             margin-bottom: 14px;
         }
@@ -169,13 +210,13 @@
         .channel-accent {
             width: 8px;
             border-radius: 5px 0 0 5px;
-            background-color: #222;
+            background-color: var(--gray-4);
             transition: background-color 0.5s;
         }
 
         /* Main tile content */
         .channel {
-            background: #1a1a1a;
+            background: var(--panel);
             border-radius: 0 5px 5px 0;
             padding: 13px 16px;
             flex: 1;
@@ -198,28 +239,28 @@
 
         .info {
             font-size: 12px;
-            color: #aaa;
+            color: var(--muted);
         }
 
         /* Status colors */
         .recording {
             animation: recordingPulse 1.8s ease-in-out infinite;
-            background-color: #ff3838 !important;
+            background-color: var(--red-8) !important;
         }
-        .live-inactive { background-color: #d91f2f !important; }
-        .monitoring { background-color: #f2d600 !important; }
-        .remuxing { background-color: #0af !important; }
-        .offline { background-color: #00cc66 !important; }
-        .error { background-color: #f33 !important; }
+        .live-inactive { background-color: var(--red-8) !important; }
+        .monitoring { background-color: var(--yellow-8) !important; }
+        .remuxing { background-color: var(--blue-8) !important; }
+        .offline { background-color: var(--green-8) !important; }
+        .error { background-color: var(--red-8) !important; }
 
         @keyframes recordingPulse {
             0%, 100% {
-                background-color: #b80024;
-                box-shadow: 0 0 0 rgba(255, 56, 56, 0);
+                background-color: var(--red-7);
+                box-shadow: 0 0 0 rgba(181, 69, 72, 0);
             }
             50% {
-                background-color: #ff3838;
-                box-shadow: 0 0 18px rgba(255, 56, 56, 0.75);
+                background-color: var(--red-9);
+                box-shadow: 0 0 12px rgba(181, 69, 72, 0.52);
             }
         }
 
