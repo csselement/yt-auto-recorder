@@ -147,6 +147,20 @@ concat_remux_to_mp4() {
         "$output" >> "$logfile" 2>&1
 }
 
+cleanup_ytdlp_sidecars() {
+    local ch_dir="$1"
+    local logfile="$2"
+    local sidecars=()
+
+    mapfile -t sidecars < <(find "$ch_dir" -maxdepth 1 -type f \( -name "*.ytdl" -o -name "*.ytdl.*" \) | sort)
+    if [[ "${#sidecars[@]}" -eq 0 ]]; then
+        return 0
+    fi
+
+    rm -f "${sidecars[@]}"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Removed ${#sidecars[@]} leftover yt-dlp sidecar file(s). ---" | tee -a "$logfile"
+}
+
 finalize_mkvs() {
     local ch_dir="$1"
     local logfile="$2"
@@ -189,8 +203,9 @@ finalize_mkvs() {
 
     if [[ -s "$output" ]]; then
         rm -f "${mkvs[@]}" "$lockfile"
+        cleanup_ytdlp_sidecars "$ch_dir" "$logfile"
         write_state "$statefile" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize successful. MKV file(s) removed. Output: $output ---" | tee -a "$logfile"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize successful. MKV and yt-dlp sidecar file(s) removed. Output: $output ---" | tee -a "$logfile"
         return 0
     fi
 
