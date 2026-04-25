@@ -3,6 +3,7 @@ import json
 import os
 import re
 import tempfile
+from datetime import datetime
 from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
@@ -152,18 +153,42 @@ def load_state(chname: str):
     except Exception:
         return ("error", None)
 
+def parse_state_time(value):
+    if not value:
+        return None
+
+    text = str(value)
+    for fmt in ("%Y-%m-%d_%H-%M-%S", "%Y-%m-%d %H:%M:%S", "%a %b %d %H:%M:%S %Z %Y"):
+        try:
+            return datetime.strptime(text, fmt)
+        except ValueError:
+            pass
+    return None
+
 def sort_channels(channels: list) -> list:
     """
-    Sort channels by priority: recording → remuxing → monitoring → offline → error
+    Sort channels by: currently recording → live start time → last seen.
     """
-    priority = {
-        "recording": 0,
-        "remuxing": 1,
-        "monitoring": 2,
-        "offline": 3,
-        "error": 4
-    }
-    return sorted(channels, key=lambda c: (priority.get(c["status"], 99), c["id"].lower()))
+    oldest = datetime(1970, 1, 1)
+
+    def key(channel):
+        state_time = channel.get("state_time") or oldest
+        recording_rank = 0 if channel["status"] == "recording" else 1
+        live_start_rank = -state_time.timestamp() if channel["status"] == "recording" else 0
+        last_seen_rank = -state_time.timestamp() if channel["status"] != "recording" else 0
+        return (recording_rank, live_start_rank, last_seen_rank, channel["name"].lower())
+
+    sorted_channels = sorted(channels, key=key)
+    for channel in sorted_channels:
+        channel.pop("state_time", None)
+    return sorted_channels
+
+def format_last_seen(status: str, timestamp) -> str:
+    if timestamp is None or str(timestamp).lower() in ["unknown", "never"]:
+        return "Never seen"
+    if status == "recording":
+        return "Live now"
+    return timestamp
 
 def load_channels() -> list:
     """
@@ -175,22 +200,16 @@ def load_channels() -> list:
         chname = slugify(url)
         status, last_seen = load_state(chname)
         active = channel_is_active(url, settings)
-
-        # Fix display for dashboard
-        if last_seen is None or str(last_seen).lower() in ["unknown", "never"]:
-            last_seen_display = "Never seen"
-        elif status == "recording":
-            last_seen_display = "Live now"
-        else:
-            last_seen_display = last_seen
+        name = display_name(url)
 
         channels.append({
             "url": url,
             "id": chname,
-            "name": display_name(url),
+            "name": name,
             "status": status,
-            "last_seen": last_seen_display,
-            "active": active
+            "last_seen": format_last_seen(status, last_seen),
+            "active": active,
+            "state_time": parse_state_time(last_seen)
         })
 
     return sort_channels(channels)
