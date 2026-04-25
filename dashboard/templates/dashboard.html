@@ -475,7 +475,7 @@
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Unable to update channel setting.");
 
-            setMessage(active ? "Recording starts are on for this channel." : "Recording starts are off for this channel.");
+            setMessage(active ? "Recording is on for this channel." : "Recording is off for this channel.");
             await refresh();
         }
 
