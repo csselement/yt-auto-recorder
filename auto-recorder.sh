@@ -5,6 +5,7 @@ CHANNELS_FILE="${CHANNEL_LIST:-/config/recording-channels.txt}"
 BASE_DIR="${BASE_DIR:-/recordings}"
 SETTINGS_FILE="${SETTINGS_FILE:-/config/settings.json}"
 CHECK_INTERVAL="${CHECK_INTERVAL:-30}"
+FINALIZE_MODE="${FINALIZE_MODE:-remux}"
 VIDEO_CRF="${VIDEO_CRF:-23}"
 VIDEO_PRESET="${VIDEO_PRESET:-veryfast}"
 AUDIO_BITRATE="${AUDIO_BITRATE:-192k}"
@@ -94,6 +95,20 @@ transcode_to_mp4() {
         "$output" >> "$logfile" 2>&1
 }
 
+remux_to_mp4() {
+    local input="$1"
+    local output="$2"
+    local logfile="$3"
+
+    ffmpeg -y \
+        -loglevel warning \
+        -i "$input" \
+        -map 0 \
+        -c copy \
+        -movflags +faststart \
+        "$output" >> "$logfile" 2>&1
+}
+
 concat_transcode_to_mp4() {
     local listfile="$1"
     local output="$2"
@@ -115,6 +130,22 @@ concat_transcode_to_mp4() {
         "$output" >> "$logfile" 2>&1
 }
 
+concat_remux_to_mp4() {
+    local listfile="$1"
+    local output="$2"
+    local logfile="$3"
+
+    ffmpeg -y \
+        -loglevel warning \
+        -f concat \
+        -safe 0 \
+        -i "$listfile" \
+        -map 0 \
+        -c copy \
+        -movflags +faststart \
+        "$output" >> "$logfile" 2>&1
+}
+
 finalize_mkvs() {
     local ch_dir="$1"
     local logfile="$2"
@@ -127,13 +158,17 @@ finalize_mkvs() {
         return 0
     fi
 
-    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalizing ${#mkvs[@]} MKV file(s) to H.264 MP4 with ${AUDIO_BITRATE} MP3 audio ---" | tee -a "$logfile"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalizing ${#mkvs[@]} MKV file(s) to MP4 using mode: ${FINALIZE_MODE} ---" | tee -a "$logfile"
     write_state "$statefile" "remuxing" "$(date '+%Y-%m-%d %H:%M:%S')"
 
     local output
     if [[ "${#mkvs[@]}" -eq 1 ]]; then
         output="${mkvs[0]%.mkv}.mp4"
-        transcode_to_mp4 "${mkvs[0]}" "$output" "$logfile"
+        if [[ "$FINALIZE_MODE" == "transcode" ]]; then
+            transcode_to_mp4 "${mkvs[0]}" "$output" "$logfile"
+        else
+            remux_to_mp4 "${mkvs[0]}" "$output" "$logfile"
+        fi
     else
         local first_base listfile escaped
         first_base="$(basename "${mkvs[0]}" .mkv)"
@@ -143,7 +178,11 @@ finalize_mkvs() {
             escaped="${mkv//\'/\'\\\'\'}"
             printf "file '%s'\n" "$escaped" >> "$listfile"
         done
-        concat_transcode_to_mp4 "$listfile" "$output" "$logfile"
+        if [[ "$FINALIZE_MODE" == "transcode" ]]; then
+            concat_transcode_to_mp4 "$listfile" "$output" "$logfile"
+        else
+            concat_remux_to_mp4 "$listfile" "$output" "$logfile"
+        fi
         rm -f "$listfile"
     fi
 

@@ -6,6 +6,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     SETTINGS_FILE=/config/settings.json \
     BASE_DIR=/recordings \
     CHECK_INTERVAL=30 \
+    FINALIZE_MODE=remux \
     VIDEO_CRF=23 \
     VIDEO_PRESET=veryfast \
     AUDIO_BITRATE=192k
