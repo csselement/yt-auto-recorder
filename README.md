@@ -79,6 +79,36 @@ The dashboard also includes a Rec on/off switch for each watched channel. Channe
 
 When a channel is added or switched back to Rec on while it is already live, the recorder first attempts to capture the stream from the beginning using YouTube's live rewind/DVR data. If YouTube does not expose the beginning of the stream, the recorder falls back to recording from the current live position.
 
+## Recording Format
+
+The default setup is tuned for low CPU use on a Ugreen NAS.
+
+Recordings are captured as `.mkv` while the stream is live. After the livestream ends, the recorder finalizes the file as `.mp4`.
+
+By default, finished recordings use fast remuxing, not transcoding:
+
+```text
+FINALIZE_MODE=remux
+```
+
+Remuxing copies the existing video and audio streams into an MP4 container. This is much faster than re-encoding and should avoid pegging the NAS CPU after a recording finishes.
+
+The recorder also asks `yt-dlp` to prefer MP4-compatible streams up front:
+
+```text
+YTDLP_FORMAT=bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/best[vcodec^=avc1][acodec^=mp4a]/best
+```
+
+That means it tries to record H.264 video (`avc1`) with AAC/M4A audio (`mp4a`) so the final MP4 can be created with stream copy. MP3 audio requires transcoding, so the default does not convert audio to MP3.
+
+If you specifically need H.264 video with 192 kbps MP3 audio, set:
+
+```text
+FINALIZE_MODE=transcode
+```
+
+Transcoding is more compatible with strict output requirements, but it is much heavier on CPU and can run slowly on a NAS.
+
 ## Folders Created
 
 With the included `docker-compose.yml`, files are stored here:
@@ -183,8 +213,8 @@ These environment variables are available in `docker-compose.yml`:
 - `CHANNEL_LIST`: path inside the container for the watch list.
 - `SETTINGS_FILE`: path inside the container for per-channel dashboard/recorder settings.
 - `BASE_DIR`: path inside the container for recordings.
-- `FINALIZE_MODE`: how finished `.mkv` files become `.mp4`. Default is `remux`, which is fast and CPU-light. Set to `transcode` for H.264 video with MP3 audio.
-- `YTDLP_FORMAT`: yt-dlp format selector. Default prefers H.264 video and AAC/M4A audio so finished files can remux to MP4 without transcoding.
+- `FINALIZE_MODE`: how finished `.mkv` files become `.mp4`. Default is `remux`, which copies streams into MP4 without re-encoding. Set to `transcode` only if you need H.264 video with MP3 audio.
+- `YTDLP_FORMAT`: yt-dlp format selector. Default prefers H.264 video and AAC/M4A audio so finished files can usually remux to MP4 without transcoding.
 - `VIDEO_CRF`: H.264 quality for `FINALIZE_MODE=transcode`. Lower is higher quality/larger files. Default is `23`.
 - `VIDEO_PRESET`: H.264 encoding speed for `FINALIZE_MODE=transcode`. Default is `veryfast`.
 - `AUDIO_BITRATE`: MP3 audio bitrate for `FINALIZE_MODE=transcode`. Default is `192k`.
@@ -196,4 +226,5 @@ These environment variables are available in `docker-compose.yml`:
 - Each channel's Rec on/off switch pauses future recording starts for that channel without deleting it from the watched channel list or stopping monitoring. Switching a channel off does not stop a recording already in progress.
 - If one channel is recording, other channels continue being checked.
 - When a channel is added or reactivated during a livestream, the recorder attempts `yt-dlp --live-from-start` before falling back to current-position capture.
-- Active recordings are first written as `.mkv` files. When a stream ends, leftover `.mkv` files are finalized into `.mp4`. The default `remux` mode is fast and CPU-light, and the recorder prefers H.264/AAC streams up front so MP4 finalization does not require transcoding. If more than one `.mkv` file is present for a channel, the recorder concatenates them sequentially before creating the final MP4.
+- Active recordings are first written as `.mkv` files. When a stream ends, leftover `.mkv` files are finalized into `.mp4`. If more than one `.mkv` file is present for a channel, the recorder concatenates them sequentially before creating the final MP4.
+- The default finalization path is fast remuxing. This keeps the original H.264/AAC streams when YouTube provides them and avoids CPU-heavy video/audio conversion.
