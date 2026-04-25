@@ -139,6 +139,11 @@
             text-decoration: none;
         }
 
+        .remove.confirm {
+            background: #7a1f2a;
+            color: #fff;
+        }
+
         .channel-actions {
             align-items: center;
             display: flex;
@@ -253,6 +258,7 @@
 
     <script>
         const message = document.getElementById("message");
+        const pendingRemovals = new Map();
 
         function setMessage(text, isError = false) {
             message.textContent = text;
@@ -304,7 +310,7 @@
                 removeButton.textContent = "x";
                 removeButton.title = "Remove channel";
                 removeButton.setAttribute("aria-label", `Remove ${ch.name || ch.id}`);
-                removeButton.addEventListener("click", () => removeChannel(ch.url));
+                removeButton.addEventListener("click", () => confirmRemoveChannel(ch.url, removeButton));
 
                 const actions = document.createElement("div");
                 actions.className = "channel-actions";
@@ -379,6 +385,28 @@
             }
             setMessage("Channel removed from the watch list. Existing recordings were kept.");
             await refresh();
+        }
+
+        function confirmRemoveChannel(url, button) {
+            if (pendingRemovals.has(url)) {
+                clearTimeout(pendingRemovals.get(url));
+                pendingRemovals.delete(url);
+                removeChannel(url);
+                return;
+            }
+
+            button.classList.add("confirm");
+            button.textContent = "!";
+            button.title = "Click again to remove";
+            setMessage("Click the remove button again to confirm.");
+
+            const timeout = setTimeout(() => {
+                pendingRemovals.delete(url);
+                button.classList.remove("confirm");
+                button.textContent = "x";
+                button.title = "Remove channel";
+            }, 5000);
+            pendingRemovals.set(url, timeout);
         }
 
         document.getElementById("channel-form").addEventListener("submit", async event => {
