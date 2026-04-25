@@ -8,6 +8,15 @@ This project is built primarily for the Ugreen NAS Docker app. It may also work 
 
 ![Auto Live Recorder Dashboard](docs/images/dashboard.png)
 
+## Features
+
+- Watch multiple YouTube channels from one simple web dashboard.
+- Automatically start recording when a watched channel goes live.
+- Keep recordings organized in one folder per channel.
+- Turn recording on or off for each channel without removing it from the list.
+- Continue monitoring channels even when recording is turned off.
+- Save finished livestreams as MP4 files using a NAS-friendly fast remux workflow.
+
 ## Easiest Ugreen NAS Install
 
 Use this method if you are installing from the Ugreen NAS desktop Docker app.
