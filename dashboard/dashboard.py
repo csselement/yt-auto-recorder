@@ -188,6 +188,8 @@ def format_last_seen(status: str, timestamp) -> str:
         return "Never seen"
     if status == "recording":
         return "Live now"
+    if status == "live_inactive":
+        return "Live now"
     return timestamp
 
 def load_channels() -> list:

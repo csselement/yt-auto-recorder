@@ -197,6 +197,7 @@
             animation: recordingPulse 1.8s ease-in-out infinite;
             background-color: #ff3838 !important;
         }
+        .live-inactive { background-color: #d91f2f !important; }
         .monitoring { background-color: #f2d600 !important; }
         .remuxing { background-color: #0af !important; }
         .offline { background-color: #00cc66 !important; }
@@ -261,6 +262,12 @@
             return node;
         }
 
+        function accentClass(channel) {
+            if (channel.status === "recording" && channel.active) return "recording";
+            if (channel.status === "recording" || channel.status === "live_inactive") return "live-inactive";
+            return channel.status;
+        }
+
         async function refresh() {
             const response = await fetch("/status");
             const data = await response.json();
@@ -273,7 +280,7 @@
                 wrapper.className = "channel-wrapper";
 
                 const accent = document.createElement("div");
-                accent.className = "channel-accent " + ch.status;
+                accent.className = "channel-accent " + accentClass(ch);
 
                 const tile = document.createElement("div");
                 tile.className = "channel";

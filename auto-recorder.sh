@@ -264,7 +264,7 @@ check_and_record() {
     fi
 
     if ! channel_is_active "$URL"; then
-        write_state "$STATEFILE" "monitoring" "Live, recording off"
+        write_state "$STATEFILE" "live_inactive" "Live, recording off"
         log "Channel recording is off; live stream detected but no new recording will start."
         return
     fi
