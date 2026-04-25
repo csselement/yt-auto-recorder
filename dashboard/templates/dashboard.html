@@ -48,22 +48,22 @@
             border-radius: 999px;
             cursor: pointer;
             display: block;
-            height: 30px;
+            height: 24px;
             position: relative;
             transition: background 0.2s;
-            width: 54px;
+            width: 42px;
         }
 
         .slider::before {
             background: #fff;
             border-radius: 50%;
             content: "";
-            height: 24px;
-            left: 3px;
+            height: 20px;
+            left: 2px;
             position: absolute;
-            top: 3px;
+            top: 2px;
             transition: transform 0.2s;
-            width: 24px;
+            width: 20px;
         }
 
         .switch input:checked + .slider {
@@ -71,7 +71,7 @@
         }
 
         .switch input:checked + .slider::before {
-            transform: translateX(24px);
+            transform: translateX(18px);
         }
 
         input {
@@ -115,28 +115,32 @@
 
         .remove {
             align-self: center;
-            background: #332222;
+            align-items: center;
+            background: #2a2020;
+            border-radius: 50%;
             color: #ffb3b3;
-            margin-left: 14px;
+            display: inline-flex;
+            font-size: 19px;
+            height: 30px;
+            justify-content: center;
+            line-height: 1;
+            margin-left: 0;
+            min-height: 30px;
+            padding: 0;
+            width: 30px;
         }
 
         .remove:hover {
             background: #552828;
+            text-decoration: none;
         }
 
         .channel-actions {
             align-items: center;
             display: flex;
             flex: 0 0 auto;
-            gap: 12px;
-        }
-
-        .channel-toggle {
-            align-items: center;
-            color: #aaa;
-            display: flex;
-            font-size: 13px;
-            gap: 8px;
+            gap: 10px;
+            margin-left: auto;
         }
 
         .message {
@@ -149,12 +153,12 @@
         /* Wrapper for left accent */
         .channel-wrapper {
             display: flex;
-            margin-bottom: 14px;
+            margin-bottom: 10px;
         }
 
         /* Left accent bar */
         .channel-accent {
-            width: 12px;
+            width: 8px;
             border-radius: 5px 0 0 5px;
             background-color: #222;
             transition: background-color 0.5s;
@@ -164,10 +168,11 @@
         .channel {
             background: #1a1a1a;
             border-radius: 0 5px 5px 0;
-            padding: 16px 20px;
+            padding: 13px 16px;
             flex: 1;
             display: flex;
-            gap: 12px;
+            align-items: center;
+            gap: 14px;
             justify-content: space-between;
         }
 
@@ -176,48 +181,52 @@
         }
 
         .channel-title {
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 600;
-            margin-bottom: 6px;
+            margin-bottom: 3px;
             word-break: break-word;
         }
 
         .info {
-            font-size: 13px;
+            font-size: 12px;
             color: #aaa;
         }
 
-        a {
-            color: #88c3ff;
-            text-decoration: none;
-        }
-        a:hover {
-            text-decoration: underline;
-        }
-
         /* Status colors */
-        .recording { background-color: #00cc44 !important; }
-        .monitoring { background-color: #cc0 !important; }
+        .recording {
+            animation: recordingPulse 1.8s ease-in-out infinite;
+            background-color: #ff3838 !important;
+        }
+        .monitoring { background-color: #f2d600 !important; }
         .remuxing { background-color: #0af !important; }
-        .offline { background-color: #555 !important; }
+        .offline { background-color: #00cc66 !important; }
         .error { background-color: #f33 !important; }
+
+        @keyframes recordingPulse {
+            0%, 100% {
+                background-color: #b80024;
+                box-shadow: 0 0 0 rgba(255, 56, 56, 0);
+            }
+            50% {
+                background-color: #ff3838;
+                box-shadow: 0 0 18px rgba(255, 56, 56, 0.75);
+            }
+        }
 
         @media (max-width: 640px) {
             body {
                 padding: 14px;
             }
 
-            .toolbar,
-            .channel {
+            .toolbar {
                 flex-direction: column;
             }
 
-            .channel-actions {
-                align-items: flex-start;
+            .channel {
+                align-items: center;
             }
 
             .remove {
-                align-self: flex-start;
                 margin-left: 0;
             }
         }
@@ -252,12 +261,6 @@
             return node;
         }
 
-        function autoRecordLabel(channel) {
-            if (channel.active) return "Recording: on";
-            if (channel.status === "recording") return "Recording: off after current recording";
-            return "Recording: off";
-        }
-
         async function refresh() {
             const response = await fetch("/status");
             const data = await response.json();
@@ -277,45 +280,32 @@
 
                 const body = document.createElement("div");
                 body.className = "channel-body";
-                body.appendChild(createText("div", "channel-title", ch.id));
+                body.appendChild(createText("div", "channel-title", ch.name || ch.id));
 
                 const info = document.createElement("div");
                 info.className = "info";
-                info.appendChild(document.createTextNode(`Status: ${ch.status}`));
-                info.appendChild(document.createElement("br"));
-                info.appendChild(document.createTextNode(autoRecordLabel(ch)));
-                info.appendChild(document.createElement("br"));
                 info.appendChild(document.createTextNode(`Last seen: ${ch.last_seen || "Never seen"}`));
-                info.appendChild(document.createElement("br"));
-
-                const link = document.createElement("a");
-                link.href = ch.url;
-                link.target = "_blank";
-                link.rel = "noopener noreferrer";
-                link.textContent = ch.url;
-                info.appendChild(link);
                 body.appendChild(info);
 
                 const removeButton = document.createElement("button");
                 removeButton.className = "remove";
                 removeButton.type = "button";
-                removeButton.textContent = "Remove";
+                removeButton.textContent = "x";
+                removeButton.title = "Remove channel";
+                removeButton.setAttribute("aria-label", `Remove ${ch.name || ch.id}`);
                 removeButton.addEventListener("click", () => removeChannel(ch.url));
 
                 const actions = document.createElement("div");
                 actions.className = "channel-actions";
 
-                const toggleLabel = document.createElement("label");
-                toggleLabel.className = "channel-toggle";
-                toggleLabel.title = "Enable or pause recording starts for this channel";
-                toggleLabel.appendChild(document.createTextNode(ch.active ? "Rec on" : "Rec off"));
-
-                const switchLabel = document.createElement("span");
+                const switchLabel = document.createElement("label");
                 switchLabel.className = "switch";
+                switchLabel.title = ch.active ? "Rec on" : "Rec off";
 
                 const activeInput = document.createElement("input");
                 activeInput.type = "checkbox";
                 activeInput.checked = Boolean(ch.active);
+                activeInput.setAttribute("aria-label", `${ch.name || ch.id} recording ${ch.active ? "on" : "off"}`);
                 activeInput.addEventListener("change", async event => {
                     try {
                         await updateChannelActive(ch.url, event.target.checked);
@@ -329,8 +319,7 @@
                 slider.className = "slider";
                 switchLabel.appendChild(activeInput);
                 switchLabel.appendChild(slider);
-                toggleLabel.appendChild(switchLabel);
-                actions.appendChild(toggleLabel);
+                actions.appendChild(switchLabel);
                 actions.appendChild(removeButton);
 
                 wrapper.appendChild(accent);

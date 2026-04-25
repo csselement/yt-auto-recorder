@@ -22,6 +22,15 @@ def slugify(url: str) -> str:
     u = url.replace("https://", "").replace("http://", "").replace("www.", "")
     return re.sub(r"[^A-Za-z0-9]+", "_", u).strip("_")
 
+def display_name(url: str) -> str:
+    parsed = urlparse(url)
+    parts = [part for part in parsed.path.split("/") if part]
+    if parts and parts[-1].lower() == "live":
+        parts = parts[:-1]
+    if parts:
+        return parts[-1].lstrip("@")
+    return slugify(url).removeprefix("youtube_com_")
+
 def ensure_channel_file() -> None:
     os.makedirs(os.path.dirname(CHANNEL_LIST), exist_ok=True)
     if not os.path.exists(CHANNEL_LIST):
@@ -178,6 +187,7 @@ def load_channels() -> list:
         channels.append({
             "url": url,
             "id": chname,
+            "name": display_name(url),
             "status": status,
             "last_seen": last_seen_display,
             "active": active
