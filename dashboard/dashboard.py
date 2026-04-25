@@ -108,6 +108,11 @@ def normalize_channel_url(url: str) -> str:
     if host not in allowed_hosts and not host.endswith(".youtube.com"):
         raise ValueError("Only YouTube channel or livestream URLs can be watched.")
 
+    path = parsed.path.strip("/")
+    parts = [part for part in path.split("/") if part]
+    if len(parts) != 1 or not parts[0].startswith("@"):
+        raise ValueError("Use a YouTube channel link like https://www.youtube.com/@TheLotRadio")
+
     return url
 
 def read_channel_urls() -> list:
