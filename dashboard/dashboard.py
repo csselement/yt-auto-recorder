@@ -106,7 +106,7 @@ def normalize_channel_url(url: str) -> str:
     host = parsed.netloc.lower().removeprefix("www.")
     allowed_hosts = {"youtube.com", "m.youtube.com", "youtu.be"}
     if host not in allowed_hosts and not host.endswith(".youtube.com"):
-        raise ValueError("Only YouTube channel or livestream URLs can be watched.")
+        raise ValueError("Only YouTube channel URLs can be monitored.")
 
     path = parsed.path.strip("/")
     parts = [part for part in path.split("/") if part]
@@ -256,7 +256,7 @@ def add_channel():
     urls = read_channel_urls()
     existing = {item.rstrip("/").lower() for item in urls}
     if url.rstrip("/").lower() in existing:
-        return jsonify({"error": "That channel is already being watched."}), 409
+        return jsonify({"error": "That channel is already being monitored."}), 409
 
     urls.append(url)
     settings = read_settings()

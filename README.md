@@ -10,8 +10,8 @@ This project is built primarily for the Ugreen NAS Docker app. It may also work 
 
 ## Features
 
-- Watch multiple YouTube channels from one simple web dashboard.
-- Automatically start recording when a watched channel goes live.
+- Monitor multiple YouTube channels from one simple web dashboard.
+- Automatically start recording when a monitored channel goes live.
 - Keep recordings organized in one folder per channel.
 - Turn recording on or off for each channel without removing it from the list.
 - Continue monitoring channels even when recording is turned off.
@@ -212,7 +212,7 @@ docker compose up -d
 These environment variables are available in `docker-compose.yml`:
 
 - `CHECK_INTERVAL`: seconds between channel checks. Default is `30`.
-- `CHANNEL_LIST`: path inside the container for the watch list.
+- `CHANNEL_LIST`: path inside the container for the monitored channel list.
 - `SETTINGS_FILE`: path inside the container for per-channel settings.
 - `BASE_DIR`: path inside the container for recordings.
 - `FINALIZE_MODE`: how finished `.mkv` files become `.mp4`. Default is `remux`. Set to `transcode` only if you need H.264 video with MP3 audio.
