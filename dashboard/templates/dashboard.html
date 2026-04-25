@@ -403,7 +403,7 @@
         }
 
         function accentClass(channel) {
-            if (!channel.last_seen) return "never-seen";
+            if (!channel.last_seen || String(channel.last_seen).toLowerCase() === "never seen") return "never-seen";
             if (channel.status === "recording") {
                 return channel.active ? "live-recording-active" : "live-recording-inactive";
             }
