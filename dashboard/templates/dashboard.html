@@ -34,6 +34,10 @@
             --yellow-8: #ab7c2a;
             --yellow-9: #ffe629;
 
+            --orange-7: #8b4c1f;
+            --orange-8: #a95c24;
+            --orange-9: #f76b15;
+
             --green-7: #2b7a4b;
             --green-8: #2f8c57;
             --green-9: #30a46c;
@@ -243,17 +247,22 @@
         }
 
         /* Status colors */
-        .recording {
-            animation: recordingPulse 1.8s ease-in-out infinite;
+        .live-recording-active {
+            animation: redPulse 1.8s ease-in-out infinite;
             background-color: var(--red-8) !important;
         }
-        .live-inactive { background-color: var(--red-8) !important; }
-        .monitoring { background-color: var(--yellow-8) !important; }
+        .live-recording-inactive { background-color: var(--red-8) !important; }
+        .waiting-recording-active {
+            animation: orangePulse 2.2s ease-in-out infinite;
+            background-color: var(--orange-8) !important;
+        }
+        .waiting-recording-inactive { background-color: var(--orange-8) !important; }
+        .offline-recording-active { background-color: var(--green-8) !important; }
+        .offline-recording-inactive { background-color: var(--yellow-8) !important; }
         .remuxing { background-color: var(--blue-8) !important; }
-        .offline { background-color: var(--green-8) !important; }
         .error { background-color: var(--red-8) !important; }
 
-        @keyframes recordingPulse {
+        @keyframes redPulse {
             0%, 100% {
                 background-color: var(--red-7);
                 box-shadow: 0 0 0 rgba(181, 69, 72, 0);
@@ -261,6 +270,17 @@
             50% {
                 background-color: var(--red-9);
                 box-shadow: 0 0 12px rgba(181, 69, 72, 0.52);
+            }
+        }
+
+        @keyframes orangePulse {
+            0%, 100% {
+                background-color: var(--orange-7);
+                box-shadow: 0 0 0 rgba(169, 92, 36, 0);
+            }
+            50% {
+                background-color: var(--orange-9);
+                box-shadow: 0 0 10px rgba(169, 92, 36, 0.42);
             }
         }
 
@@ -314,8 +334,16 @@
         }
 
         function accentClass(channel) {
-            if (channel.status === "recording" && channel.active) return "recording";
-            if (channel.status === "recording" || channel.status === "live_inactive") return "live-inactive";
+            if (channel.status === "recording") {
+                return channel.active ? "live-recording-active" : "live-recording-inactive";
+            }
+            if (channel.status === "live_inactive") return "live-recording-inactive";
+            if (channel.status === "monitoring") {
+                return channel.active ? "waiting-recording-active" : "waiting-recording-inactive";
+            }
+            if (channel.status === "offline") {
+                return channel.active ? "offline-recording-active" : "offline-recording-inactive";
+            }
             return channel.status;
         }
 
