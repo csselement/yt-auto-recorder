@@ -309,6 +309,7 @@
         .offline-recording-inactive { background-color: var(--yellow-9) !important; }
         .remuxing { background-color: var(--blue-9) !important; }
         .error { background-color: var(--red-9) !important; }
+        .never-seen { background-color: var(--gray-8) !important; }
 
         @keyframes redPulse {
             0%, 100% {
@@ -382,6 +383,7 @@
         }
 
         function accentClass(channel) {
+            if (!channel.last_seen) return "never-seen";
             if (channel.status === "recording") {
                 return channel.active ? "live-recording-active" : "live-recording-inactive";
             }
