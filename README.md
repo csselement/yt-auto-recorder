@@ -4,6 +4,8 @@ This runs a small web dashboard plus a background recorder that watches YouTube 
 
 This Docker image and Compose setup are written specifically for Ugreen NAS systems running the Ugreen Docker app. It may also work on other generic Docker or Docker Compose hosts, but the included NAS instructions and `docker-compose.ugreen.yml` are aimed at Ugreen NAS deployment.
 
+![Auto Live Recorder Dashboard](docs/images/dashboard.png)
+
 ## What Docker Does Here
 
 Docker packages the recorder, dashboard, `yt-dlp`, `ffmpeg`, and their dependencies into one container. On your Ugreen NAS, you only need to run the container and mount two folders:
