@@ -253,9 +253,9 @@
         }
 
         function autoRecordLabel(channel) {
-            if (channel.active) return "Auto-record: on";
-            if (channel.status === "recording") return "Auto-record: off after current recording";
-            return "Auto-record: off";
+            if (channel.active) return "Recording: on";
+            if (channel.status === "recording") return "Recording: off after current recording";
+            return "Recording: off";
         }
 
         async function refresh() {
@@ -307,8 +307,8 @@
 
                 const toggleLabel = document.createElement("label");
                 toggleLabel.className = "channel-toggle";
-                toggleLabel.title = "Enable or pause automatic starts for this channel";
-                toggleLabel.appendChild(document.createTextNode(ch.active ? "Auto on" : "Auto off"));
+                toggleLabel.title = "Enable or pause recording starts for this channel";
+                toggleLabel.appendChild(document.createTextNode(ch.active ? "Rec on" : "Rec off"));
 
                 const switchLabel = document.createElement("span");
                 switchLabel.className = "switch";
@@ -350,7 +350,7 @@
             const data = await response.json();
             if (!response.ok) throw new Error(data.error || "Unable to update channel setting.");
 
-            setMessage(active ? "Automatic starts are on for this channel." : "Automatic starts are off for this channel.");
+            setMessage(active ? "Recording starts are on for this channel." : "Recording starts are off for this channel.");
             await refresh();
         }
 

@@ -227,20 +227,6 @@ check_and_record() {
         echo "$(date '+%Y-%m-%d %H:%M:%S') $1" | tee -a "$LOGFILE"
     }
 
-    if ! channel_is_active "$URL"; then
-        if is_recording "$LOCKFILE"; then
-            log "Channel inactive for future recordings; current recording continues."
-            return
-        fi
-
-        log "Channel recording inactive; skipping future start for $CHECK_URL"
-        if [[ ! -f "$STATEFILE" ]]; then
-            write_state "$STATEFILE" "monitoring" "Paused"
-        fi
-        finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE"
-        return
-    fi
-
     log "Checking $CHECK_URL"
 
     # Check if live. Some YouTube /live pages resolve a stream URL even when
@@ -274,6 +260,12 @@ check_and_record() {
 
     if is_recording "$LOCKFILE"; then
         log "Already recording; skipping duplicate start."
+        return
+    fi
+
+    if ! channel_is_active "$URL"; then
+        write_state "$STATEFILE" "monitoring" "Live, recording off"
+        log "Channel recording is off; live stream detected but no new recording will start."
         return
     fi
 
