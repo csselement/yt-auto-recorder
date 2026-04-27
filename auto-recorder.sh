@@ -58,7 +58,30 @@ resolve_stream_url() {
 
 channel_is_active() {
     local url="$1"
-    [[ "$(jq -r --arg url "$url" '.channels[$url].active // .recording_active // true' "$SETTINGS_FILE" 2>/dev/null)" == "true" ]]
+    local active
+    active="$(
+        jq -r --arg url "$url" '
+            def norm: ascii_downcase | sub("/+$"; "");
+            (.channels // {}) as $channels
+            | if $channels | has($url) then
+                $channels[$url].active
+              else
+                (
+                    $channels
+                    | to_entries
+                    | map(select((.key | norm) == ($url | norm)))
+                ) as $matches
+                | if ($matches | length) > 0 then
+                    $matches[0].value.active
+                  elif has("recording_active") then
+                    .recording_active
+                  else
+                    true
+                  end
+              end
+        ' "$SETTINGS_FILE" 2>/dev/null
+    )"
+    [[ "$active" == "true" ]]
 }
 
 is_recording() {
@@ -147,18 +170,27 @@ concat_remux_to_mp4() {
         "$output" >> "$logfile" 2>&1
 }
 
-cleanup_ytdlp_sidecars() {
+cleanup_recording_sidecars() {
     local ch_dir="$1"
     local logfile="$2"
     local sidecars=()
 
-    mapfile -t sidecars < <(find "$ch_dir" -maxdepth 1 -type f \( -name "*.ytdl" -o -name "*.ytdl.*" \) | sort)
+    mapfile -t sidecars < <(
+        find "$ch_dir" -maxdepth 1 -type f \( \
+            -name "*.ytdl" \
+            -o -name "*.ytdl.*" \
+            -o -name "*.part" \
+            -o -name "*.part-Frag*" \
+            -o -name "*.mkv-Frag*" \
+            -o -name "*.mp4-Frag*" \
+        \) | sort
+    )
     if [[ "${#sidecars[@]}" -eq 0 ]]; then
         return 0
     fi
 
     rm -f "${sidecars[@]}"
-    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Removed ${#sidecars[@]} leftover yt-dlp sidecar file(s). ---" | tee -a "$logfile"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Removed ${#sidecars[@]} leftover recording sidecar/fragment file(s). ---" | tee -a "$logfile"
 }
 
 finalize_mkvs() {
@@ -203,9 +235,9 @@ finalize_mkvs() {
 
     if [[ -s "$output" ]]; then
         rm -f "${mkvs[@]}" "$lockfile"
-        cleanup_ytdlp_sidecars "$ch_dir" "$logfile"
+        cleanup_recording_sidecars "$ch_dir" "$logfile"
         write_state "$statefile" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
-        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize successful. MKV and yt-dlp sidecar file(s) removed. Output: $output ---" | tee -a "$logfile"
+        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize successful. MKV and recording sidecar/fragment file(s) removed. Output: $output ---" | tee -a "$logfile"
         return 0
     fi
 
@@ -285,6 +317,16 @@ check_and_record() {
 
     log "Checking $CHECK_URL"
 
+    if ! channel_is_active "$URL"; then
+        if is_recording "$LOCKFILE"; then
+            log "Channel recording is off, but an existing recording is already running; allowing it to finish."
+            return
+        fi
+        write_state "$STATEFILE" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
+        log "Channel recording is off; skipping live detection and no new recording will start."
+        return
+    fi
+
     # Check if live. Some YouTube /live pages resolve a stream URL even when
     # metadata detection is flaky, so direct stream resolution is the fallback.
     IS_LIVE=$("$YTDLP" --quiet --no-warnings --skip-download --print "%(is_live)s" "$CHECK_URL" 2>/dev/null | head -n 1)
@@ -316,12 +358,6 @@ check_and_record() {
 
     if is_recording "$LOCKFILE"; then
         log "Already recording; skipping duplicate start."
-        return
-    fi
-
-    if ! channel_is_active "$URL"; then
-        write_state "$STATEFILE" "live_inactive" "Live, recording off"
-        log "Channel recording is off; live stream detected but no new recording will start."
         return
     fi
 
