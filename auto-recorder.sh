@@ -322,8 +322,25 @@ check_and_record() {
             log "Channel recording is off, but an existing recording is already running; allowing it to finish."
             return
         fi
-        write_state "$STATEFILE" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
-        log "Channel recording is off; skipping live detection and no new recording will start."
+
+        IS_LIVE=$("$YTDLP" --quiet --no-warnings --skip-download --print "%(is_live)s" "$CHECK_URL" 2>/dev/null | head -n 1)
+        if [[ "$IS_LIVE" == "True" ]]; then
+            write_state "$STATEFILE" "live_inactive" "$(date '+%Y-%m-%d %H:%M:%S')"
+            log "Channel recording is off; live stream detected but no recording will start."
+        else
+            if [[ -f "$STATEFILE" ]]; then
+                PREV_STATUS=$(jq -r .status "$STATEFILE" 2>/dev/null)
+                if [[ "$PREV_STATUS" == "live_inactive" || "$PREV_STATUS" == "recording" ]]; then
+                    write_state "$STATEFILE" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
+                    log "--- Stream ended (detected). Marked OFFLINE."
+                else
+                    log "Channel recording is off; not live yet (is_live=${IS_LIVE:-empty})."
+                fi
+            else
+                write_state "$STATEFILE" "monitoring" "Never"
+                log "Channel recording is off; not live yet (is_live=${IS_LIVE:-empty})."
+            fi
+        fi
         return
     fi
 

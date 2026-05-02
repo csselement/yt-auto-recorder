@@ -106,7 +106,7 @@
             display: flex;
             flex-direction: column;
             gap: 10px;
-            margin-bottom: 18px;
+            margin-bottom: 12px;
         }
 
         .switch {
@@ -153,6 +153,14 @@
             transform: translateX(18px);
         }
 
+        .switch.locked {
+            opacity: 0.52;
+        }
+
+        .switch.locked .slider {
+            cursor: not-allowed;
+        }
+
         input {
             flex: 1;
             min-width: 0;
@@ -190,6 +198,78 @@
 
         button:hover {
             background: var(--blue-9);
+        }
+
+        .control-lock {
+            align-items: center;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--muted);
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            margin-bottom: 14px;
+            min-height: 42px;
+            padding: 0 12px;
+        }
+
+        .lock-label {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .lock-button {
+            align-items: center;
+            background: var(--gray-8);
+            border-radius: 999px;
+            color: var(--gray-12);
+            display: inline-flex;
+            gap: 7px;
+            min-height: 28px;
+            padding: 0 10px;
+        }
+
+        .lock-button:hover {
+            background: var(--gray-9);
+        }
+
+        .lock-button.unlocked {
+            background: var(--orange-8);
+            color: white;
+        }
+
+        .lock-button.unlocked:hover {
+            background: var(--orange-9);
+        }
+
+        .lock-icon {
+            border: 2px solid currentColor;
+            border-radius: 3px;
+            box-sizing: border-box;
+            display: inline-block;
+            height: 10px;
+            position: relative;
+            width: 12px;
+        }
+
+        .lock-icon::before {
+            border: 2px solid currentColor;
+            border-bottom: 0;
+            border-radius: 7px 7px 0 0;
+            box-sizing: border-box;
+            content: "";
+            height: 8px;
+            left: 1px;
+            position: absolute;
+            top: -8px;
+            width: 8px;
+        }
+
+        .lock-button.unlocked .lock-icon::before {
+            left: 5px;
+            transform: rotate(28deg);
+            transform-origin: bottom left;
         }
 
         .remove {
@@ -320,7 +400,7 @@
 
         /* Status colors */
         .live-recording-active {
-            animation: redPulse 1.8s ease-in-out infinite;
+            animation: redPulse 1.35s ease-in-out infinite;
             background-color: var(--red-9);
         }
         .live-recording-inactive { background-color: var(--red-9); }
@@ -337,12 +417,14 @@
 
         @keyframes redPulse {
             0%, 100% {
-                background-color: var(--red-8);
+                background-color: var(--red-7);
                 box-shadow: 0 0 0 rgba(229, 72, 77, 0);
+                opacity: 0.52;
             }
             50% {
                 background-color: var(--red-10);
-                box-shadow: 0 0 14px rgba(229, 72, 77, 0.58);
+                box-shadow: 0 0 18px rgba(229, 72, 77, 0.82);
+                opacity: 1;
             }
         }
 
@@ -382,17 +464,59 @@
             <button type="submit">Add Channel</button>
         </form>
 
+        <div class="control-lock">
+            <span class="lock-label">Rec controls</span>
+            <button id="lock-toggle" class="lock-button" type="button" aria-pressed="true">
+                <span class="lock-icon" aria-hidden="true"></span>
+                <span id="lock-text">Locked</span>
+            </button>
+        </div>
+
         <div id="message" class="message"></div>
         <div id="channels"></div>
     </main>
 
     <script>
         const message = document.getElementById("message");
+        const lockToggle = document.getElementById("lock-toggle");
+        const lockText = document.getElementById("lock-text");
         const pendingRemovals = new Map();
+        let controlsLocked = true;
 
         function setMessage(text, isError = false) {
             message.textContent = text;
             message.style.color = isError ? "#ff9a9a" : "#aaa";
+        }
+
+        function renderLockState() {
+            lockToggle.classList.toggle("unlocked", !controlsLocked);
+            lockToggle.setAttribute("aria-pressed", String(controlsLocked));
+            lockToggle.title = controlsLocked ? "Unlock recording controls" : "Lock recording controls";
+            lockText.textContent = controlsLocked ? "Locked" : "Unlocked";
+
+            document.querySelectorAll(".channel-actions .switch").forEach(item => {
+                item.classList.toggle("locked", controlsLocked);
+                item.title = controlsLocked ? "Unlock Rec controls to change this channel" : item.dataset.recTitle;
+            });
+        }
+
+        async function loadSettings() {
+            const response = await fetch("/settings");
+            const data = await response.json();
+            controlsLocked = data.controls_locked !== false;
+            renderLockState();
+        }
+
+        async function updateControlsLock(locked) {
+            const response = await fetch("/settings", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ controls_locked: locked })
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Unable to update Rec controls lock.");
+            controlsLocked = data.controls_locked !== false;
+            renderLockState();
         }
 
         function createText(tag, className, text) {
@@ -456,13 +580,20 @@
 
                 const switchLabel = document.createElement("label");
                 switchLabel.className = "switch";
-                switchLabel.title = ch.active ? "Rec on" : "Rec off";
+                switchLabel.dataset.recTitle = ch.active ? "Rec on" : "Rec off";
+                switchLabel.title = switchLabel.dataset.recTitle;
 
                 const activeInput = document.createElement("input");
                 activeInput.type = "checkbox";
                 activeInput.checked = Boolean(ch.active);
                 activeInput.setAttribute("aria-label", `${ch.name || ch.id} recording ${ch.active ? "on" : "off"}`);
                 activeInput.addEventListener("change", async event => {
+                    if (controlsLocked) {
+                        event.target.checked = !event.target.checked;
+                        setMessage("Unlock Rec controls to change channel recording.");
+                        return;
+                    }
+
                     try {
                         await updateChannelActive(ch.url, event.target.checked);
                     } catch (error) {
@@ -484,6 +615,8 @@
                 wrapper.appendChild(tile);
                 container.appendChild(wrapper);
             });
+
+            renderLockState();
         }
 
         async function updateChannelActive(url, active) {
@@ -557,7 +690,17 @@
             }
         });
 
+        lockToggle.addEventListener("click", () => {
+            updateControlsLock(!controlsLocked)
+                .then(() => {
+                    setMessage(controlsLocked ? "Rec controls are locked." : "Rec controls are unlocked.");
+                })
+                .catch(error => setMessage(error.message, true));
+        });
+
         setInterval(refresh, 60000);
+        renderLockState();
+        loadSettings();
         refresh();
     </script>
 </body>

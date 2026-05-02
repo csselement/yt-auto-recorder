@@ -12,7 +12,7 @@ from flask import Flask, jsonify, render_template, request
 CHANNEL_LIST = os.environ.get("CHANNEL_LIST", "/config/recording-channels.txt")
 BASE_DIR = os.environ.get("BASE_DIR", "/recordings")
 SETTINGS_FILE = os.environ.get("SETTINGS_FILE", "/config/settings.json")
-DEFAULT_SETTINGS = {"channels": {}}
+DEFAULT_SETTINGS = {"channels": {}, "controls_locked": True}
 
 app = Flask(__name__)
 
@@ -61,6 +61,7 @@ def read_settings() -> dict:
     settings.update({k: data[k] for k in settings.keys() & data.keys()})
     if not isinstance(settings["channels"], dict):
         settings["channels"] = {}
+    settings["controls_locked"] = coerce_bool(settings.get("controls_locked", True))
 
     # Migrate the old global recording switch into per-channel settings.
     if "recording_active" in data and not settings["channels"]:
@@ -243,7 +244,18 @@ def get_settings():
 
 @app.route("/settings", methods=["PATCH"])
 def update_settings():
-    return jsonify({"error": "Use PATCH /channels to update channel settings."}), 400
+    payload = request.get_json(silent=True) or {}
+    updates = {}
+    if "controls_locked" in payload:
+        updates["controls_locked"] = coerce_bool(payload["controls_locked"])
+
+    if not updates:
+        return jsonify({"error": "No supported settings were provided."}), 400
+
+    settings = read_settings()
+    settings.update(updates)
+    write_settings(settings)
+    return jsonify(settings)
 
 @app.route("/channels", methods=["POST"])
 def add_channel():
@@ -279,6 +291,8 @@ def update_channel():
 
     updates = {}
     if "active" in payload:
+        if coerce_bool(read_settings().get("controls_locked", True)):
+            return jsonify({"error": "Rec controls are locked."}), 423
         updates["active"] = coerce_bool(payload["active"])
 
     if not updates:
