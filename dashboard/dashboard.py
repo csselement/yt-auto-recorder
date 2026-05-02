@@ -305,6 +305,9 @@ def update_channel():
 
 @app.route("/channels", methods=["DELETE"])
 def remove_channel():
+    if coerce_bool(read_settings().get("controls_locked", True)):
+        return jsonify({"error": "Rec controls are locked."}), 423
+
     payload = request.get_json(silent=True) or {}
     url = (payload.get("url", "") or "").strip()
     if not url:

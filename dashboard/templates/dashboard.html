@@ -297,6 +297,11 @@
             color: white;
         }
 
+        .remove.locked {
+            cursor: not-allowed;
+            opacity: 0.52;
+        }
+
         .remove-icon {
             display: block;
             height: 12px;
@@ -498,6 +503,11 @@
                 item.classList.toggle("locked", controlsLocked);
                 item.title = controlsLocked ? "Unlock Rec controls to change this channel" : item.dataset.recTitle;
             });
+
+            document.querySelectorAll(".channel-actions .remove").forEach(item => {
+                item.classList.toggle("locked", controlsLocked);
+                item.title = controlsLocked ? "Unlock Rec controls to remove this channel" : "Remove channel";
+            });
         }
 
         async function loadSettings() {
@@ -660,6 +670,11 @@
         }
 
         function confirmRemoveChannel(url, button) {
+            if (controlsLocked) {
+                setMessage("Unlock Rec controls to remove channels.");
+                return;
+            }
+
             if (pendingRemovals.has(url)) {
                 clearTimeout(pendingRemovals.get(url));
                 pendingRemovals.delete(url);
