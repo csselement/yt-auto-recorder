@@ -25,10 +25,10 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt yt-dlp
 
-COPY auto-recorder.sh start.sh ./
+COPY auto-recorder.sh chat-normalize.py start.sh ./
 COPY dashboard ./dashboard
 
-RUN chmod +x /app/auto-recorder.sh /app/start.sh \
+RUN chmod +x /app/auto-recorder.sh /app/chat-normalize.py /app/start.sh \
     && mkdir -p /config /recordings
 
 EXPOSE 8090

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -u
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHANNELS_FILE="${CHANNEL_LIST:-/config/recording-channels.txt}"
 BASE_DIR="${BASE_DIR:-/recordings}"
 SETTINGS_FILE="${SETTINGS_FILE:-/config/settings.json}"
@@ -10,7 +11,10 @@ YTDLP_FORMAT="${YTDLP_FORMAT:-bestvideo[vcodec^=avc1]+bestaudio[acodec^=mp4a]/be
 VIDEO_CRF="${VIDEO_CRF:-23}"
 VIDEO_PRESET="${VIDEO_PRESET:-veryfast}"
 AUDIO_BITRATE="${AUDIO_BITRATE:-192k}"
+CHAT_RETRY_ATTEMPTS="${CHAT_RETRY_ATTEMPTS:-5}"
+CHAT_RETRY_DELAY="${CHAT_RETRY_DELAY:-60}"
 YTDLP="${YTDLP:-$(command -v yt-dlp || true)}"
+CHAT_NORMALIZER="${CHAT_NORMALIZER:-$SCRIPT_DIR/chat-normalize.py}"
 
 if [[ -z "$YTDLP" || ! -x "$YTDLP" ]]; then
     echo "ERROR: yt-dlp not found. Install yt-dlp or set YTDLP=/path/to/yt-dlp."
@@ -193,11 +197,95 @@ cleanup_recording_sidecars() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') --- Removed ${#sidecars[@]} leftover recording sidecar/fragment file(s). ---" | tee -a "$logfile"
 }
 
+write_chat_manifest() {
+    local video="$1"
+    local source_url="$2"
+    local raw_chat="$3"
+    local normalized_chat="$4"
+    local status="$5"
+    local message_count="$6"
+    local manifest="${video%.mp4}.chat-manifest.json"
+    local raw_chat_name=""
+    local normalized_chat_name=""
+
+    if [[ -n "$raw_chat" ]]; then
+        raw_chat_name="$(basename "$raw_chat")"
+    fi
+    if [[ -n "$normalized_chat" ]]; then
+        normalized_chat_name="$(basename "$normalized_chat")"
+    fi
+
+    jq -n \
+        --arg video_file "$(basename "$video")" \
+        --arg source_url "$source_url" \
+        --arg raw_chat_file "$raw_chat_name" \
+        --arg normalized_chat_file "$normalized_chat_name" \
+        --arg status "$status" \
+        --argjson message_count "$message_count" \
+        --arg finalized_at "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+        '{video_file: $video_file, source_url: $source_url, raw_chat_file: $raw_chat_file, normalized_chat_file: $normalized_chat_file, status: $status, message_count: $message_count, finalized_at: $finalized_at, timestamp_basis: "time_ms is relative to the YouTube live-chat replay timeline"}' \
+        > "$manifest"
+}
+
+capture_live_chat() {
+    local source_url="$1"
+    local video="$2"
+    local logfile="$3"
+    local chat_base="${video%.mp4}"
+    local raw_chat=""
+    local normalized_chat="${chat_base}.chat.jsonl"
+    local attempt messages
+
+    if [[ -z "$source_url" ]]; then
+        return 0
+    fi
+
+    for ((attempt = 1; attempt <= CHAT_RETRY_ATTEMPTS; attempt++)); do
+        raw_chat="$(find "$(dirname "$video")" -maxdepth 1 -type f -name "$(basename "$chat_base").live_chat*.json3" -print -quit)"
+        if [[ -s "$raw_chat" ]]; then
+            break
+        fi
+
+        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Fetching live-chat replay (attempt ${attempt}/${CHAT_RETRY_ATTEMPTS}). ---" | tee -a "$logfile"
+        "$YTDLP" \
+            --no-warnings \
+            --no-playlist \
+            --skip-download \
+            --write-subs \
+            --sub-langs live_chat \
+            --sub-format json3 \
+            -o "${chat_base}.%(ext)s" \
+            "$source_url" >> "$logfile" 2>&1 || true
+
+        raw_chat="$(find "$(dirname "$video")" -maxdepth 1 -type f -name "$(basename "$chat_base").live_chat*.json3" -print -quit)"
+        if [[ -s "$raw_chat" || "$attempt" -eq "$CHAT_RETRY_ATTEMPTS" ]]; then
+            break
+        fi
+        sleep "$CHAT_RETRY_DELAY"
+    done
+
+    if [[ ! -s "$raw_chat" ]]; then
+        write_chat_manifest "$video" "$source_url" "" "" "unavailable" 0
+        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Live-chat replay was unavailable after ${CHAT_RETRY_ATTEMPTS} attempt(s). ---" | tee -a "$logfile"
+        return 0
+    fi
+
+    if ! messages="$(python3 "$CHAT_NORMALIZER" "$raw_chat" "$normalized_chat")"; then
+        write_chat_manifest "$video" "$source_url" "$raw_chat" "" "captured_unparsed" 0
+        echo "$(date '+%Y-%m-%d %H:%M:%S') --- Live-chat replay saved, but normalization failed. ---" | tee -a "$logfile"
+        return 0
+    fi
+
+    write_chat_manifest "$video" "$source_url" "$raw_chat" "$normalized_chat" "captured" "$messages"
+    echo "$(date '+%Y-%m-%d %H:%M:%S') --- Live-chat replay saved: $(basename "$raw_chat") (${messages} message(s)). ---" | tee -a "$logfile"
+}
+
 finalize_mkvs() {
     local ch_dir="$1"
     local logfile="$2"
     local statefile="$3"
     local lockfile="$4"
+    local source_url="${5:-}"
 
     mapfile -t mkvs < <(find "$ch_dir" -maxdepth 1 -type f -name "*.mkv" | sort)
     if [[ "${#mkvs[@]}" -eq 0 ]]; then
@@ -236,6 +324,7 @@ finalize_mkvs() {
     if [[ -s "$output" ]]; then
         rm -f "${mkvs[@]}" "$lockfile"
         cleanup_recording_sidecars "$ch_dir" "$logfile"
+        capture_live_chat "$source_url" "$output" "$logfile"
         write_state "$statefile" "offline" "$(date '+%Y-%m-%d %H:%M:%S')"
         echo "$(date '+%Y-%m-%d %H:%M:%S') --- Finalize successful. MKV and recording sidecar/fragment file(s) removed. Output: $output ---" | tee -a "$logfile"
         return 0
@@ -296,7 +385,7 @@ record_stream() {
     fi
 
     log "--- Recording stopped. Finalizing MKV file(s). ---"
-    finalize_mkvs "$ch_dir" "$logfile" "$statefile" "$lockfile"
+    finalize_mkvs "$ch_dir" "$logfile" "$statefile" "$lockfile" "$url"
 }
 
 check_and_record() {
@@ -368,7 +457,7 @@ check_and_record() {
             write_state "$STATEFILE" "monitoring" "Never"
         fi
         if ! is_recording "$LOCKFILE"; then
-            finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE"
+            finalize_mkvs "$CH_DIR" "$LOGFILE" "$STATEFILE" "$LOCKFILE" "$CHECK_URL"
         fi
         return
     fi

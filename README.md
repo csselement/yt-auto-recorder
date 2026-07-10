@@ -95,6 +95,8 @@ If you add a channel while it is already live, the recorder tries to start from 
 
 Finished recordings are saved as `.mp4` files. While a stream is still recording, temporary `.mkv` files may appear. After the stream ends, the app finalizes them into MP4.
 
+Each finished MP4 also attempts to save YouTube live chat automatically when chat replay is available. The recorder keeps the raw `.live_chat.json3` archive, a timestamped `.chat.jsonl` editing sidecar, and a `.chat-manifest.json` capture record beside the MP4. No dashboard setup is required.
+
 ## Recording Format
 
 The default setup is meant to be light on Ugreen NAS CPU.
